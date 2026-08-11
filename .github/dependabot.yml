@@ -29,3 +29,10 @@ updates:
     groups:
       dev-dependencies:
         dependency-type: development
+    ignore:
+      # Hold the compiler major in step with the sibling extensions
+      # (azure-pipelines-terraform and -packer are both on TypeScript 5).
+      # These three repos share copied task code, so a compiler-major split
+      # is precisely the drift the shared-core initiative exists to remove.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
