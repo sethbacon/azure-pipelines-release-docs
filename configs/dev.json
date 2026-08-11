@@ -1,0 +1,6 @@
+{
+  "id": "pipeline-tasks-release-docs-dev",
+  "name": "Pipeline Tasks for Release & Documentation (Dev)",
+  "public": false,
+  "publisher": "sethbacon"
+}

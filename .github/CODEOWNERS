@@ -1,0 +1,9 @@
+# Every file needs owner review; there is currently one maintainer.
+* @sethbacon
+
+# Supply-chain and publishing surfaces — a change here must never be swept
+# along in a large diff.
+/.github/                       @sethbacon
+/configs/                       @sethbacon
+/scripts/                       @sethbacon
+/azure-devops-extension.json    @sethbacon

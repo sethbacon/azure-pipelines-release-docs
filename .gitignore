@@ -1,0 +1,21 @@
+node_modules/
+build/
+coverage/
+*.tsbuildinfo
+*.vsix
+
+# Personal publisher override — never commit
+configs/self.json
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local secrets
+.env
+.env.*
+*.pem
+*.key

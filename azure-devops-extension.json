@@ -1,0 +1,50 @@
+{
+  "manifestVersion": 1,
+  "id": "pipeline-tasks-release-docs",
+  "name": "Pipeline Tasks for Release & Documentation",
+  "version": "0.0.0",
+  "publisher": "sethbacon",
+  "targets": [
+    {
+      "id": "Microsoft.VisualStudio.Services"
+    }
+  ],
+  "scopes": [
+    "vso.build"
+  ],
+  "description": "Release engineering and documentation publishing tasks for Azure Pipelines: changelog generation, Markdown to HTML conversion, and ServiceNow knowledge base publishing.",
+  "public": false,
+  "categories": [
+    "Azure Pipelines"
+  ],
+  "tags": [
+    "Release",
+    "Changelog",
+    "Documentation",
+    "Markdown",
+    "ServiceNow",
+    "DevOps"
+  ],
+  "branding": {
+    "color": "#FFFFFF",
+    "theme": "light"
+  },
+  "icons": {
+    "default": "images/icon.png",
+    "large": "images/icon.png"
+  },
+  "content": {
+    "details": {
+      "path": "overview.md"
+    },
+    "license": {
+      "path": "LICENSE"
+    }
+  },
+  "files": [],
+  "repository": {
+    "type": "git",
+    "uri": "https://github.com/sethbacon/azure-pipelines-release-docs"
+  },
+  "contributions": []
+}
