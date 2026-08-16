@@ -7,7 +7,7 @@ and documentation publishing (`Markdown2Html`, `PublishKbArticle`, migrated out 
 
 > **Status: scaffold.** No tasks are implemented yet. The plan is held as a single source of truth in
 > the shared-core repo, because that package is Phase 0 and blocks this work:
-> [initiative-1-shared-task-core.md](https://github.com/sethbacon/pipeline-task-core/blob/main/docs/initiatives/initiative-1-shared-task-core.md).
+> [initiative-1-shared-task-core.md](https://github.com/4cloudguru/pipeline-task-core/blob/main/docs/initiatives/initiative-1-shared-task-core.md).
 > It is deliberately not duplicated here.
 
 ## Why a separate extension
@@ -26,7 +26,11 @@ concerns so each can be versioned, reviewed and trusted on its own terms.
 - Base manifest keeps `"public": false`; `configs/release.json` opts into the public listing, so a dev
   package can never accidentally ship one. Also enforced by `scripts/check-versions.js`.
 - Node 24 execution handler with a `Node20_1` fallback for agents lacking the Node 24 runner.
-- Shared primitives come from `@sethbacon/pipeline-task-core` rather than being copied in.
+- Shared primitives come from `@4cloudguru/pipeline-task-core` (platform-agnostic) and
+  `@4cloudguru/pipeline-task-ado` (the half that may name Azure DevOps — input parsing, the agent
+  proxy dispatcher, `tasks.loc`) rather than being copied in. Both publish to the public npm
+  registry from the `4cloudguru` org. Note the scope: `@sethbacon` on npmjs belongs to an unrelated
+  third party, so a `@sethbacon/...` specifier is not a typo to be tolerated.
 
 ## Development
 
@@ -38,5 +42,10 @@ npm run test:all
 npm run check:versions
 ```
 
-Commits follow Conventional Commits; releases are cut by release-please and published to the
-Visual Studio Marketplace via a reviewed `marketplace` environment.
+Commits follow Conventional Commits; releases are cut by release-please.
+
+> **Not yet implemented:** there is no `release.yml`, so nothing publishes to the Visual Studio
+> Marketplace today. The sibling extensions gate that behind a reviewed `marketplace` environment
+> with a deployment branch/tag policy, and this repo should adopt the same before its first release.
+> Stated here as absent rather than described as if it existed — a README that claims a publish path
+> the repo does not have is the `docs-claims` defect class, which this extension inherits in full.
