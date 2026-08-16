@@ -1,14 +1,11 @@
 version: 2
 
-# The npm updater needs to authenticate to GitHub Packages to resolve
-# @sethbacon/pipeline-task-core. Set the repository Dependabot secret
-# SUITE_READ_TOKEN (a token with read:packages) — an Actions secret of the same
-# name is NOT visible to Dependabot.
-registries:
-  npm-github-packages:
-    type: npm-registry
-    url: https://npm.pkg.github.com
-    token: ${{secrets.SUITE_READ_TOKEN}}
+# No `registries:` block: the shared primitives are @4cloudguru/pipeline-task-core
+# and @4cloudguru/pipeline-task-ado, published to the PUBLIC npm registry, which
+# needs no authentication. This previously pointed the npm updater at GitHub
+# Packages with a SUITE_READ_TOKEN for a @sethbacon-scoped package that does not
+# exist there; Dependabot resolves a missing secret to an empty string rather
+# than failing, so that misconfiguration would have degraded silently.
 
 updates:
   - package-ecosystem: github-actions
@@ -20,8 +17,6 @@ updates:
 
   - package-ecosystem: npm
     directory: /
-    registries:
-      - npm-github-packages
     schedule:
       interval: weekly
     commit-message:
