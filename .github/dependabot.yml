@@ -14,6 +14,12 @@ updates:
       interval: weekly
     commit-message:
       prefix: deps
+    # codeql-action's init/analyze are separate Dependabot dependencies but are
+    # version-locked at runtime, so they have to move in a single PR.
+    groups:
+      github-actions-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: npm
     directory: /
