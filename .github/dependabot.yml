@@ -37,3 +37,27 @@ updates:
       # is precisely the drift the shared-core initiative exists to remove.
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
+
+  # ---------------------------------------------------------------------------
+  # npm (.github/commit-message-check: the parser the PR gate shares with
+  # release-please)
+  # ---------------------------------------------------------------------------
+  # The gate is only meaningful while it parses the way release-please does, so
+  # these bumps want checking against release-please's own dependency rather
+  # than merging on green.
+  - package-ecosystem: npm
+    directory: /.github/commit-message-check
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: UTC
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      commit-message-check:
+        patterns:
+          - "*"
