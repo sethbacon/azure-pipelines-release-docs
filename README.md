@@ -27,11 +27,19 @@ concerns so each can be versioned, reviewed and trusted on its own terms.
   and a new id rather than an in-place move, and a pipeline referencing `Markdown2Html@1` keeps
   resolving to the Terraform-hosted task until its YAML is edited. No deprecation window has been
   decided yet (#55).
-- Base manifest keeps `"public": false`, which `scripts/check-versions.js` does enforce, and
-  `configs/release.json` is the override that opts into the public listing. Only that first half is a
-  gate: no script reads `configs/`, so a dev override that set `public: true` would package a public
-  listing and the check would still pass (#43). Treat the override files as convention until that
-  closes.
+- Base manifest keeps `"public": false` and `configs/release.json` is the override that opts into the
+  public listing. Both halves are now a gate: `scripts/check-versions.js` reads every file in
+  `configs/`, allows only `release.json` to set `public: true` or a `Public` gallery flag, requires
+  each override's `id`/`publisher` to match the coordinates this repository releases under, and fails
+  closed on an override it has no rule for — tfx overrides win over the base manifest, so an
+  unreviewed file here decides which Marketplace listing gets updated (#43).
+- The task universe is **declared** in `task-universe.json` and measured on every run. A gate that
+  walks `Tasks/` today enumerates zero, and zero is only acceptable because it was written down in
+  advance: the declaration says `expect: "absent"`, the gates print a `SCAFFOLD:` banner saying they
+  proved nothing about task code, and they fail the moment a task exists under a declaration that
+  still says none do. Once tasks land, flip it to `expect: "present"` with a `minTasks` floor and a
+  run that enumerates fewer fails (#39). The shape is the estate's blind-audit code-universe gate,
+  which aborts rather than grade a tree nobody opened.
 - Tasks live at `Tasks/<Family>/<TaskDirVn>/task.json` — exactly two directory levels. That layout is
   the definition every script shares via `scripts/lib/task-dirs.js`, and
   `scripts/check-package-composition.js` fails on anything under `Tasks/` that sits outside it.
@@ -53,17 +61,26 @@ npm ci                    # root tooling (tfx, typescript)
 npm run deps              # per-task dependencies
 npm run compile
 npm run test:all
-npm run check:versions    # task versions/GUIDs/name prefix, and version agreement
-                          # between azure-devops-extension.json and release-please
+npm run audit:all         # per-task npm audit (the root lockfile never sees a
+                          # task's dependencies under the no-workspace model)
+npm run check:versions    # declared task universe, task versions/GUIDs/name prefix,
+                          # task version monotonicity against the base revision,
+                          # version agreement between azure-devops-extension.json
+                          # and release-please, and the configs/ publish identity
 npm run check:docs-claims # documented claims vs. what the workflows actually do
 npm run check:composition # what the .vsix would contain, and whether the manifest
                           # promises anything that is not in it
-npm run test:composition  # mutation self-test: re-creates each defect the gates
-                          # above exist to catch and asserts they fail by name
+npm run check:audit-scope # whether the required "Dependency audit" job inspects a
+                          # non-empty set of packages
+npm run test:composition  # mutation self-test: re-creates each defect the
+npm run test:gates        # gates above exist to catch and asserts they fail by name
 ```
 
-`check:versions`, `check:composition` and `test:composition` all run in the required
-`Check Version Consistency` CI job. `npm run build:release` runs `check:composition` before composing
+`check:versions`, `check:composition`, `test:composition` and `test:gates` all run in the required
+`Check Version Consistency` CI job; `check:audit-scope` runs in `Dependency audit`, ahead of the
+audit it checks the scope of. `Lint GitHub Actions` (actionlint) is a separate job and is **not yet**
+one of main's required contexts — it has to be added to branch protection by hand, like
+`Check Documented Claims`. `npm run build:release` runs `check:composition` before composing
 `./build`, and `scripts/copy-build.js` then refuses to compose a package containing a symlink, a
 secret-shaped file, a path outside a known task directory, or anything the allowlist does not cover —
 and asserts, over its own finished output, that every path the packaged manifest promises is present.

@@ -1,0 +1,6 @@
+{
+  "$comment": "The DECLARED task universe. Read scripts/lib/task-dirs.js (checkTaskUniverse) before editing.",
+  "expect": "absent",
+  "minTasks": 0,
+  "why": "PASS BOUNDARY. No task has been migrated in yet, so every gate that walks Tasks/ enumerates zero and proves nothing about task code. That is a fact about this repository, not a clean result, and it is declared here so the gates can say which one they mean. The day Tasks/<Family>/<TaskDirVn>/task.json lands, this file is stale and the gates fail until it is corrected: flip expect to \"present\" and set minTasks to the number of tasks that must exist for a run to count."
+}
