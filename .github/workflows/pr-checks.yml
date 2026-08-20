@@ -1,10 +1,16 @@
 ---
 name: PR Checks
 
-# pull_request, not pull_request_target: neither job needs a write token or a
+# pull_request, not pull_request_target: no job here needs a write token or a
 # secret on a fork PR, so there is nothing to gain from running privileged
 # against untrusted code — which is what pull_request_target does. This also
 # matches azure-pipelines-terraform and -packer.
+#
+# That sentence was untrue for twelve lines: `dependency-review` held
+# `pull-requests: write` while the comment claimed no job needed one (#34). The
+# grant is now `read`, so the file and its own rationale agree — which is the
+# point, because a comment that reads as authoritative is what stops the next
+# reader checking.
 "on":
   pull_request:
     types: [opened, edited, synchronize, reopened]
@@ -16,9 +22,16 @@ jobs:
   title:
     name: PR title convention
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       pull-requests: read
     steps:
+      # hardening-exception: egress-audit — this job holds no stored credential
+      # (its GITHUB_TOKEN is read-only and scoped to this PR), and its egress is
+      # a third-party action's own dependency fetches rather than a set this
+      # file can enumerate. The two jobs in this repository that DO hold a
+      # stored App private key — release-please and signature-replay's replay —
+      # are on `block` with an explicit allowlist (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -43,10 +56,23 @@ jobs:
   dependency-review:
     name: Dependency review
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
-      pull-requests: write
+      # read, not write. The pinned action documents the write grant as
+      # existing for ONE input — `comment-summary-in-pr` — and that input is
+      # not set here, so the grant was dead while the header comment eight
+      # lines above claimed "neither job needs a write token" (#34). This job
+      # has an untrusted-by-construction tree on disk; the file and its own
+      # justification now agree.
+      pull-requests: read
     steps:
+      # hardening-exception: egress-audit — this job holds no stored credential
+      # (its GITHUB_TOKEN is read-only and scoped to this PR), and its egress is
+      # a third-party action's own dependency fetches rather than a set this
+      # file can enumerate. The two jobs in this repository that DO hold a
+      # stored App private key — release-please and signature-replay's replay —
+      # are on `block` with an explicit allowlist (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -81,18 +107,32 @@ jobs:
   release-please-can-read-the-commit:
     name: release-please can read the merged commit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: read
     steps:
+      # hardening-exception: egress-audit — this job holds no stored credential
+      # (its GITHUB_TOKEN is read-only and scoped to this PR), and its egress is
+      # a third-party action's own dependency fetches rather than a set this
+      # file can enumerate. The two jobs in this repository that DO hold a
+      # stored App private key — release-please and signature-replay's replay —
+      # are on `block` with an explicit allowlist (#23).
+      - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: audit
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      # --ignore-scripts, matching every other install in this repository: the
+      # parser is pure JS and needs no lifecycle script to run, and this job
+      # has the PR's tree on disk (#21).
       - name: Install the parser release-please uses
         working-directory: .github/commit-message-check
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Parse the commit this PR would squash into main
         env:

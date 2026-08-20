@@ -94,6 +94,15 @@ jobs:
       sha: ${{ steps.resolve-sha.outputs.sha }}
       tag: ${{ steps.resolve-sha.outputs.tag }}
     steps:
+      # hardening-exception: egress-audit — release.yml has NEVER RUN. `guard` fails
+      # every tag today because azure-devops-extension.json declares
+      # "contributions": [] and tfx refuses to package it, so there is no audit-mode
+      # record from which to derive an allowlist for any job in this file. #23 asks
+      # for exactly that evidence before flipping, and guessing an allowlist onto a
+      # path whose first execution is a real release trades an observed risk for an
+      # unobserved outage. Derive the lists from the first release run's harden-runner
+      # summaries and flip all seven jobs then; the workflow-hardening gate keeps this
+      # reason in front of whoever edits the file (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -252,6 +261,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      # hardening-exception: egress-audit — same as `guard`: this workflow has never
+      # run, so no audit-mode record exists to derive an allowlist from. This job also
+      # runs `npm ci` and the per-task installs, whose destinations are npm's registry
+      # and CDN rather than a set this file can enumerate (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -279,6 +292,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      # hardening-exception: egress-audit — same as `guard`: no audit-mode record
+      # exists yet, and this job runs `npm ci` plus `tfx extension create`, whose
+      # egress is npm's and Microsoft's to change rather than this file's (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -315,6 +331,14 @@ jobs:
       id-token: write
       attestations: write # required by attest-build-provenance / attest
     steps:
+      # hardening-exception: egress-audit — this is the job an allowlist is most worth
+      # having on: it holds id-token and attestations write. It stays on audit for one
+      # reason only, and it is the reason #23 itself gives — this workflow has never
+      # run, so the Sigstore, npm and attestation endpoints would be copied from a
+      # sibling rather than observed here. The sibling list to start from is recorded
+      # in 4cloudguru/pipeline-task-core's publish.yml (fulcio, rekor, tuf-repo-cdn,
+      # registry.npmjs.org, api.github.com); confirm it against this job's first real
+      # run and flip it then (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -388,6 +412,10 @@ jobs:
     outputs:
       release_id: ${{ steps.create_release.outputs.id }}
     steps:
+      # hardening-exception: egress-audit — same as `guard`: no observed egress record
+      # exists for this workflow yet. This job downloads artifacts, installs cosign
+      # from a GitHub release and verifies against Rekor before creating the draft
+      # (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -444,6 +472,12 @@ jobs:
       id-token: write # GitHub OIDC -> Microsoft Entra federated credential
       contents: read
     steps:
+      # hardening-exception: egress-audit — the Marketplace publish reaches Entra
+      # (login.microsoftonline.com), the Azure DevOps resource app and the Marketplace
+      # itself through tfx-cli, none of which this workflow has ever contacted. A
+      # guessed allowlist here fails a release AFTER a human has approved the
+      # environment gate and while a ten-minute token is burning. Derive it from the
+      # first run and flip it then (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -537,6 +571,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      # hardening-exception: egress-audit — same as `guard`: no observed egress record
+      # exists for this workflow yet. This job runs one github-script call against the
+      # API and is the cheapest of the seven to flip once that record exists (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit

@@ -1,0 +1,375 @@
+#!/usr/bin/env node
+'use strict'
+
+// ===========================================================================
+// SIGNATURE for the WORKFLOW-HARDENING-BY-CONVENTION defect class.
+//
+// The class: a hardening property that every workflow in the tree happens to
+// satisfy, enforced by nothing. It survives exactly as long as whoever last
+// read the files, and the instance that fails is the one nobody compares
+// against the others. Four instances were filed against this repository on the
+// same day, all four of them "true today, unenforced":
+//
+//   #30  every `uses:` is pinned to a full SHA — by hand, with
+//        `sha_pinning_required: false` on the repository.
+//   #22  every job carries harden-runner and a timeout — except the one that
+//        mints a GitHub App token and runs code checked out from 15 repos.
+//   #23  every harden-runner is `egress-policy: audit`, so the control is
+//        installed everywhere and switched off everywhere.
+//   #21  every `npm ci` carries `--ignore-scripts` — except the per-task one
+//        in scripts/for-each-task.js, which lost the flag relative to the
+//        hardened sibling it was copied from.
+//
+// #21 is the shape of all four: the flag was present in the source, absent in
+// the copy, and nothing noticed because "the convention" is a thing people
+// hold in their heads. This script is where it is written down instead.
+//
+// What this gate enforces
+// -----------------------
+//   1. PINNING. Every `uses:` resolves to a local path (`./…`) or to a full
+//      40-hex commit SHA, and carries a trailing comment naming the version
+//      that SHA is. An unlabelled SHA is unreviewable; a tag is mutable.
+//   2. INSTALL HARDENING. Every npm install invoked from a workflow, and the
+//      per-task install in scripts/for-each-task.js, carries
+//      `--ignore-scripts`. `npm ci` runs dependency `preinstall`/`install`/
+//      `postinstall`/`prepare` by default (#21).
+//   3. TIMEOUTS. Every job declares `timeout-minutes`. Without one, a hung or
+//      deliberately-stalled job holds the runner — and whatever credential it
+//      minted — for the platform default of six hours (#22). A job that is a
+//      reusable-workflow call (`uses:` at job level) is exempt: the key is not
+//      valid there.
+//   4. EGRESS. Every job that has `steps:` begins with harden-runner, and that
+//      step states an egress policy. `block` must name a non-empty
+//      `allowed-endpoints`. `audit` is allowed only where the step carries an
+//      exception comment giving the reason:
+//
+//          # hardening-exception: egress-audit — <why this job cannot block>
+//
+//      BIDIRECTIONAL, and the second direction is the load-bearing one: an
+//      exception comment in a step that is NOT on `audit` fails too, so the
+//      reason has to be deleted in the change that flips the job to `block`.
+//      An exception that outlives its own justification is how "audit
+//      everywhere" became the resting state in the first place.
+//   5. VACUITY. A gate that enumerated nothing looks exactly like a gate that
+//      found nothing, so the counts are printed and an empty universe fails.
+//
+// Read as text, not parsed as YAML: this repository carries no YAML dependency
+// and a gate that needs one cannot run before `npm ci`. Same choice, for the
+// same reason, as scripts/check-audit-scope.js.
+//
+// Usage:  node scripts/check-workflow-hardening.js [repoRoot] [--json]
+// Exit 0 = every hardening property holds. Exit 1 = drift, listed.
+//
+// Mutation-proved by scripts/test-workflow-hardening.js, which runs beside it.
+// ===========================================================================
+
+const fs = require('node:fs')
+const path = require('node:path')
+
+const JSON_OUTPUT = process.argv.includes('--json')
+const ROOT = path.resolve(process.argv.filter((a) => a !== '--json')[2] || path.join(__dirname, '..'))
+
+const findings = []
+const fail = (kind, where, message) => findings.push({ kind, where, message })
+
+const enumerated = { workflows: 0, jobs: 0, uses: 0, installs: 0, hardenRunners: 0, egressExceptions: 0 }
+
+const EXCEPTION_MARKER = 'hardening-exception: egress-audit'
+const MIN_REASON_CHARS = 20
+
+/* ------------------------------------------------------------------ *
+ * A minimal, indentation-driven view of a workflow file.
+ *
+ * Enough structure to answer "which job is this line in, and is it the
+ * job's first step" — and no more. Anything that needs a real parser
+ * needs a YAML dependency, which is the thing this file refuses.
+ * ------------------------------------------------------------------ */
+
+function indentOf(line) {
+  const m = /^(\s*)/.exec(line)
+  return m[1].length
+}
+
+const isComment = (line) => /^\s*#/.test(line)
+const isBlank = (line) => /^\s*$/.test(line)
+
+/**
+ * @returns {{name: string, start: number, end: number, lines: string[]}[]}
+ * one entry per key under a top-level `jobs:` mapping.
+ */
+function parseJobs(lines) {
+  const jobsAt = lines.findIndex((line) => /^jobs:\s*$/.test(line))
+  if (jobsAt === -1) return []
+
+  const jobs = []
+  let current = null
+  for (let i = jobsAt + 1; i < lines.length; i++) {
+    const line = lines[i]
+    if (isBlank(line) || isComment(line)) continue
+    const indent = indentOf(line)
+    if (indent === 0) break // back out to another top-level key
+    const key = /^\s{2}([A-Za-z0-9_.-]+):\s*$/.exec(line)
+    if (indent === 2 && key) {
+      if (current) current.end = i
+      current = { name: key[1], start: i, end: lines.length, lines: [] }
+      jobs.push(current)
+    }
+  }
+  for (const job of jobs) job.lines = lines.slice(job.start, job.end)
+  return jobs
+}
+
+/**
+ * The first `- ` step item of a job, as its own slice of lines. Returns null
+ * for a job with no `steps:` (a reusable-workflow call).
+ */
+function firstStepOf(jobLines) {
+  const stepsAt = jobLines.findIndex((line) => /^\s{4}steps:\s*$/.test(line))
+  if (stepsAt === -1) return null
+  let start = -1
+  let end = jobLines.length
+  for (let i = stepsAt + 1; i < jobLines.length; i++) {
+    if (!/^\s{6}- /.test(jobLines[i])) continue
+    if (start === -1) start = i
+    else {
+      end = i
+      break
+    }
+  }
+  if (start === -1) return null
+  // Comment lines directly above the first step belong to it: that is where a
+  // reader — and this gate — expects the exception's reasoning to live.
+  let commentStart = start
+  while (commentStart > stepsAt + 1 && (isComment(jobLines[commentStart - 1]) || isBlank(jobLines[commentStart - 1]))) commentStart--
+  return { lines: jobLines.slice(commentStart, end), offset: commentStart }
+}
+
+/* ------------------------------------------------------------------ *
+ * The workflows themselves.
+ * ------------------------------------------------------------------ */
+
+const workflowsDir = path.join(ROOT, '.github', 'workflows')
+const workflowFiles = fs.existsSync(workflowsDir)
+  ? fs
+      .readdirSync(workflowsDir)
+      .filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'))
+      .sort()
+  : []
+
+if (workflowFiles.length === 0) {
+  fail('vacuity', '.github/workflows', 'no workflow files found — every check below would report "clean" for the wrong reason')
+}
+
+for (const file of workflowFiles) {
+  enumerated.workflows++
+  const rel = `.github/workflows/${file}`
+  const lines = fs.readFileSync(path.join(workflowsDir, file), 'utf8').split(/\r?\n/)
+
+  // ── 1. PINNING ────────────────────────────────────────────────────────────
+  lines.forEach((line, index) => {
+    if (isComment(line)) return
+    const m = /^\s*(?:- )?uses:\s*(.+)$/.exec(line)
+    if (!m) return
+    enumerated.uses++
+    const where = `${rel}:${index + 1}`
+    const raw = m[1].trim()
+    const [ref, ...commentParts] = raw.split('#')
+    const action = ref.trim().replace(/^["']|["']$/g, '')
+    const comment = commentParts.join('#').trim()
+
+    if (action.startsWith('./') || action.startsWith('.\\')) return // a workflow in this repository
+
+    if (!/@[0-9a-f]{40}$/.test(action)) {
+      fail(
+        'pinning',
+        where,
+        `\`uses: ${action}\` is not pinned to a full 40-hex commit SHA. A tag or branch ref is mutable, so the ` +
+          'reviewed action and the executed action are not the same thing',
+      )
+      return
+    }
+    if (comment.length === 0) {
+      fail(
+        'pinning',
+        where,
+        `\`uses: ${action}\` is pinned but unlabelled. Add a trailing \`# vX.Y.Z\` comment naming the version that ` +
+          'SHA is; an unlabelled SHA cannot be reviewed or updated deliberately',
+      )
+    }
+  })
+
+  // ── 2. INSTALL HARDENING ──────────────────────────────────────────────────
+  lines.forEach((line, index) => {
+    if (isComment(line)) return
+    if (!/\bnpm\s+(ci|install|i)\b/.test(line)) return
+    enumerated.installs++
+    if (/--ignore-scripts\b/.test(line)) return
+    fail(
+      'install',
+      `${rel}:${index + 1}`,
+      `\`${line.trim()}\` runs without --ignore-scripts. npm runs dependency preinstall/install/postinstall/prepare ` +
+        'scripts by default, which is arbitrary code execution from the dependency tree on this runner (#21)',
+    )
+  })
+
+  // ── 3 & 4. PER-JOB TIMEOUT AND EGRESS POLICY ──────────────────────────────
+  const jobs = parseJobs(lines)
+  if (jobs.length === 0) {
+    fail('vacuity', rel, 'no jobs parsed — the timeout and egress checks would pass over nothing for this file')
+  }
+
+  for (const job of jobs) {
+    enumerated.jobs++
+    const jobWhere = `${rel} -> ${job.name}`
+    const body = job.lines.filter((line) => !isComment(line))
+    const isReusableCall = body.some((line) => /^\s{4}uses:\s*\S/.test(line))
+
+    if (!body.some((line) => /^\s{4}timeout-minutes:\s*\d+/.test(line))) {
+      if (isReusableCall) {
+        // `timeout-minutes` is not a valid key on a reusable-workflow call job;
+        // the called workflow's own jobs carry theirs.
+      } else {
+        fail(
+          'timeout',
+          jobWhere,
+          'declares no `timeout-minutes`. Without one a hung or stalled job holds the runner — and any credential it ' +
+            'minted — for the platform default of six hours (#22)',
+        )
+      }
+    }
+
+    const first = firstStepOf(job.lines)
+    if (first === null) {
+      if (!isReusableCall) {
+        fail('egress', jobWhere, 'has neither `steps:` nor a reusable-workflow `uses:` — this gate cannot tell what it runs')
+      }
+      continue
+    }
+
+    const stepText = first.lines.join('\n')
+    const runnable = first.lines.filter((line) => !isComment(line)).join('\n')
+    const hasException = stepText.includes(EXCEPTION_MARKER)
+
+    if (!/step-security\/harden-runner@/.test(runnable)) {
+      fail(
+        'egress',
+        jobWhere,
+        'does not begin with step-security/harden-runner. Every other job in this repository does, and the one that ' +
+          'skipped it was the one holding a GitHub App token (#22)',
+      )
+      if (hasException) enumerated.egressExceptions++
+      continue
+    }
+    enumerated.hardenRunners++
+
+    const policy = /^\s*egress-policy:\s*(\S+)/m.exec(runnable)
+    if (!policy) {
+      fail('egress', jobWhere, 'runs harden-runner with no `egress-policy:` — the action defaults are not a stated policy')
+      continue
+    }
+
+    if (policy[1] === 'block') {
+      if (hasException) {
+        enumerated.egressExceptions++
+        fail(
+          'egress',
+          jobWhere,
+          `is on \`egress-policy: block\` but still carries a \`${EXCEPTION_MARKER}\` comment. Delete the exception in ` +
+            'the change that flips the job — an exception that outlives its justification is how audit-everywhere became the resting state (#23)',
+        )
+      }
+      if (!/^\s*allowed-endpoints:/m.test(runnable)) {
+        fail('egress', jobWhere, 'is on `egress-policy: block` with no `allowed-endpoints:` — state the destinations this job is permitted to reach')
+      }
+      continue
+    }
+
+    if (policy[1] !== 'audit') {
+      fail('egress', jobWhere, `unrecognised \`egress-policy: ${policy[1]}\` — this gate knows only \`block\` and \`audit\``)
+      continue
+    }
+
+    // audit
+    if (!hasException) {
+      fail(
+        'egress',
+        jobWhere,
+        `is on \`egress-policy: audit\`, which records exfiltration and never prevents it, with no recorded reason. ` +
+          `Move it to \`block\` with an \`allowed-endpoints:\` list, or state why it cannot with a ` +
+          `\`# ${EXCEPTION_MARKER} — <reason>\` comment on the step (#23)`,
+      )
+      continue
+    }
+    enumerated.egressExceptions++
+    const reason = new RegExp(`${EXCEPTION_MARKER}\\s*[—:-]?\\s*(.*)$`, 'm').exec(stepText)
+    if (!reason || reason[1].trim().length < MIN_REASON_CHARS) {
+      fail(
+        'egress',
+        jobWhere,
+        `carries a \`${EXCEPTION_MARKER}\` marker with no usable reason (at least ${MIN_REASON_CHARS} characters). ` +
+          'An unexplained exception is the convention this gate replaces, written one level down',
+      )
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * The per-task install, which is not in a workflow at all.
+ * ------------------------------------------------------------------ */
+
+const forEachTask = path.join(ROOT, 'scripts', 'for-each-task.js')
+if (!fs.existsSync(forEachTask)) {
+  fail('install', 'scripts/for-each-task.js', 'not found — the per-task install this gate exists to check is absent')
+} else {
+  const source = fs.readFileSync(forEachTask, 'utf8')
+  const block = source.slice(source.indexOf('const ACTIONS = {'), source.indexOf('function npm('))
+  const ci = /^\s{2}ci:\s*(.*)$/m.exec(block)
+  if (!ci) {
+    fail('install', 'scripts/for-each-task.js', "ACTIONS defines no `ci` action — the per-task install this gate checks cannot be found")
+  } else {
+    enumerated.installs++
+    if (!/--ignore-scripts/.test(ci[1])) {
+      fail(
+        'install',
+        'scripts/for-each-task.js',
+        "ACTIONS.ci runs the per-task `npm ci` without --ignore-scripts. The root install is hardened and this one is " +
+          'not, which is where third-party task dependencies actually live — and `npm run build:release` copies each ' +
+          'task directory into the packaged .vsix afterwards (#21)',
+      )
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Vacuity guards.
+ * ------------------------------------------------------------------ */
+
+if (enumerated.uses === 0 && workflowFiles.length > 0) {
+  fail('vacuity', '.github/workflows', 'no `uses:` found in any workflow — the pinning check inspected nothing')
+}
+if (enumerated.jobs === 0 && workflowFiles.length > 0) {
+  fail('vacuity', '.github/workflows', 'no jobs found in any workflow — the timeout and egress checks inspected nothing')
+}
+
+/* ------------------------------------------------------------------ */
+
+const summary =
+  `enumerated: ${enumerated.jobs} job(s) over ${enumerated.workflows} workflow(s), ${enumerated.uses} \`uses:\` ref(s), ` +
+  `${enumerated.installs} npm install invocation(s), ${enumerated.hardenRunners} harden-runner step(s), ` +
+  `${enumerated.egressExceptions} recorded egress exception(s).`
+
+if (JSON_OUTPUT) {
+  console.log(JSON.stringify({ enumerated, findings, failures: findings.length }, null, 2))
+  process.exit(findings.length ? 1 : 0)
+}
+
+console.log(summary)
+
+if (findings.length) {
+  console.error('')
+  for (const f of findings) console.error(`FAIL [${f.kind}] ${f.where}: ${f.message}`)
+  console.error(`\n${findings.length} workflow-hardening propert(ies) are convention rather than fact.`)
+  process.exit(1)
+}
+
+console.log('OK: every workflow-hardening property this gate checks is enforced rather than conventional.')

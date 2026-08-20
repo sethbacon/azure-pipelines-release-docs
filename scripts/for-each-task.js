@@ -32,7 +32,14 @@ const { checkTaskUniverse } = require('./lib/task-dirs.js')
 const root = path.join(__dirname, '..')
 
 const ACTIONS = {
-  ci: (dir) => npm(['--prefix', dir, 'ci', '--no-update-notifier', '--no-progress']),
+  // --ignore-scripts: `npm ci` runs dependency preinstall/install/postinstall/
+  // prepare by default, so without it every transitive package in a task's
+  // lockfile gets arbitrary code execution on the runner. The ROOT install one
+  // line above this in CI is hardened and this one was not — the flag was
+  // present in the hardened sibling this file was copied from and lost in the
+  // copy (#21). It matters most on `build:release`, where `copy` walks each
+  // task directory into ./build and tfx packages that as the .vsix.
+  ci: (dir) => npm(['--prefix', dir, 'ci', '--ignore-scripts', '--no-update-notifier', '--no-progress']),
   prune: (dir) => npm(['--prefix', dir, 'prune', '--omit=dev', '--no-update-notifier', '--no-progress']),
   compile: (dir) => tsc(['-b', path.join(dir, 'tsconfig.json')]),
   test: (dir) => npm(['--prefix', dir, 'test']),

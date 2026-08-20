@@ -143,6 +143,15 @@ const CONTROLS = {
     summary: 'the .vsix is signed (cosign/sigstore) or carries a build-provenance attestation',
     detect: () => inWorkflows(/cosign|sigstore|attest-build-provenance/i),
   },
+  'workflow-hardening': {
+    summary: 'a workflow runs the workflow-hardening gate (SHA pinning, install hardening, timeouts, egress policy)',
+    // The gate itself, not the properties it checks: the properties are what
+    // change, and a detector that looked for `--ignore-scripts` or a SHA would
+    // go green on a tree where the gate had been deleted and the flags simply
+    // happened to still be there — which is the exact state this control
+    // replaced (#21, #22, #23, #30).
+    detect: () => inWorkflows(/check-workflow-hardening\.js/),
+  },
   'sbom-attestation': {
     summary: 'an SBOM is generated and attested by a workflow',
     // Workflows only. An `sbom` npm script that no job calls satisfies section 4
