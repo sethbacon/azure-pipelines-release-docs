@@ -230,6 +230,13 @@ jobs:
       - name: Publish wrapper keeps the token off argv and bounds its retries
         run: node scripts/test-publish-marketplace.js
 
+      # ADO agents pick up new MINOR task versions automatically; a fix that
+      # ships with only a Patch bump is published to the Marketplace and never
+      # reaches an agent that already cached the Major.Minor. The PR gate checks
+      # this on the release PR; this checks it against the tag actually building.
+      - name: Verify per-task Minor bumps
+        run: node scripts/check-minor-bumps.js
+
       # Every downstream job checks out THIS commit rather than re-resolving the
       # tag, so a tag moved after this point cannot swap what gets published.
       - name: Resolve the validated commit

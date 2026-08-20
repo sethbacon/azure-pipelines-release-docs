@@ -68,10 +68,18 @@ const ACTIONS = {
   // --audit-level=high matches the root job; no --omit, because a task's
   // devDependencies build the code that ships (#20, #54).
   audit: (dir) => npm(['audit', '--audit-level=high', '--no-update-notifier', '--no-progress'], { cwd: path.join(root, dir) }),
+  // Executes the COMPILED entry point the agent runs, so a CI leg on another Node
+  // major proves the shipped artefact loads there. task.json declaring a Node20_1
+  // handler that only ever ran under Node 24 is the gap this closes.
+  smoke: (dir) => node([path.join(root, dir, 'src', 'index.js')], { cwd: path.join(root, dir) }),
 }
 
 function npm(args, options = {}) {
   execFileSync(process.execPath, [npmCli(), ...args], { stdio: 'inherit', ...options })
+}
+
+function node(args, options = {}) {
+  execFileSync(process.execPath, args, { stdio: 'inherit', ...options })
 }
 
 // Where npm's own JS entrypoint is. Resolved rather than shelled out to, which

@@ -157,6 +157,42 @@ jobs:
   # reports on every pull request without blocking one — which is also the
   # state of "release-please can read the merged commit" below, the other half
   # of the release-parsing pair, and both should be promoted together.
+  release-pr-minor-bumps:
+    name: Release PR Minor Bumps
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      # hardening-exception: egress-audit — this job clones this repository and
+      # holds no stored credential; its remaining egress is the runner's own
+      # action fetches rather than a set this file can enumerate (#23).
+      - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: audit
+      # Always runs, so it can be a required check: a gate that only exists on
+      # release PRs cannot be required, and one that is not required does not
+      # block the merge it exists to block.
+      - name: Skip for non-release PRs
+        if: ${{ ! startsWith(github.event.pull_request.head.ref, 'release-please--') }}
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          echo "Head ref '${HEAD_REF}' is not a release-please branch; the per-task Minor-bump gate only applies to Release PRs. Skipping."
+      # Tags are the comparison basis, so fetch-depth: 0 and fetch-tags. The
+      # merge ref this checks out is what main becomes when the PR merges, which
+      # is the state the published task versions have to be correct for.
+      - name: Checkout (release PRs only)
+        if: ${{ startsWith(github.event.pull_request.head.ref, 'release-please--') }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - name: Verify per-task Minor bumps
+        if: ${{ startsWith(github.event.pull_request.head.ref, 'release-please--') }}
+        run: node scripts/check-minor-bumps.js
+
   breaking-change-footers:
     name: Breaking-change footers survive the squash
     runs-on: ubuntu-latest
