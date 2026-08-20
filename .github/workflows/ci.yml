@@ -35,19 +35,33 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Task versions are compared against the SAME task at the base
+          # revision (#44), which needs the base commit to be in the object
+          # store. A shallow checkout has only the merge commit, so `git show
+          # <base>:Tasks/.../task.json` would fail and check-versions.js fails
+          # closed rather than skipping the comparison.
+          fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
       - name: Version and manifest invariants
+        env:
+          # On a pull_request the checkout is the merge ref and origin/main is
+          # not fetched, so name the base explicitly; on a push it is the commit
+          # main was at before. check-versions.js falls back to origin/main then
+          # HEAD^ and FAILS if none resolves while tasks exist.
+          BASE_REV: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: node scripts/check-versions.js
       - name: Package composition
         run: node scripts/check-package-composition.js
-      # Mutation self-test: re-creates each defect the gates exist to catch and
-      # asserts the gate exits non-zero AND names the cause. A gate that has
+      # Mutation self-tests: each re-creates the defects the gates exist to catch
+      # and asserts the gate exits non-zero AND names the cause. A gate that has
       # quietly stopped detecting anything looks exactly like a clean tree, so
-      # this runs beside it on every PR rather than once at review time.
+      # these run beside it on every PR rather than once at review time.
       - name: Composition gates detect what they claim to
         run: node scripts/test-package-composition.js
+      - name: Version, universe, publish-identity and audit-scope gates detect what they claim to
+        run: node scripts/test-gates.js
 
   build:
     name: Build and Test (${{ matrix.os }})
@@ -84,8 +98,20 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+      # Dependency-free: reads package-lock.json and the workflows only, so it
+      # runs before any install and cannot be defeated by one.
+      - name: The audited tree is not empty
+        run: node scripts/check-audit-scope.js
       - run: npm ci --ignore-scripts
-      - run: npm audit --omit=dev --audit-level=high
+      # No --omit=dev. package.json declares no `dependencies`, so --omit=dev
+      # audited an empty tree while this context reported green on main (#20).
+      # The excluded packages are the toolchain that builds and packages the
+      # .vsix, tfx-cli included.
+      - run: npm audit --audit-level=high
+      # The root lockfile resolves the root's own tooling only. Tasks are
+      # independent npm packages with their own lockfiles, so this is the only
+      # thing that ever audits them (#54). It enumerates zero today and says so.
+      - run: npm run audit:all
 
   zizmor:
     name: Scan Workflows (zizmor)
@@ -135,3 +161,65 @@ jobs:
       # No install step: the script uses node builtins and `git check-ignore`
       # only, so it runs before and independently of any dependency tree.
       - run: node scripts/check-docs-claims.js
+
+  # zizmor scans for workflow SECURITY anti-patterns; it does not check workflow
+  # schema, expression syntax or the shell inside `run:`. The workflows ARE this
+  # repository's production artifact today — there is no task code — so the
+  # complementary linter the family already runs as a required check in
+  # azure-pipelines-terraform belongs here too (#56).
+  #
+  # A NEW required context has to be added to main's branch protection by hand:
+  # "Lint GitHub Actions". Until that is done this job reports on every pull
+  # request without blocking one. It is deliberately not a step on `manifest`:
+  # a workflow-syntax failure reported under the context name "Check Version
+  # Consistency" is the same misdirection #44 filed against that job.
+  actionlint:
+    name: Lint GitHub Actions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install actionlint
+        shell: bash
+        # The release asset is downloaded directly and verified against
+        # actionlint's own published SHA256 before extraction, rather than the
+        # convenience install script, which pipes curl straight into tar with no
+        # integrity check. Same version and checksum as the sibling extension's
+        # required `Lint GitHub Actions` job. Checksum from
+        # https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_checksums.txt
+        # (linux_amd64, matching this job's ubuntu-latest runner).
+        run: |
+          set -euo pipefail
+          curl -sSfLO https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  actionlint_1.7.12_linux_amd64.tar.gz" | sha256sum -c -
+          tar xzf actionlint_1.7.12_linux_amd64.tar.gz actionlint
+      - name: Run actionlint
+        run: ./actionlint -color
+      # Same contract as the node gates' self-tests: prove the linter still
+      # rejects something before believing its green. The fixture lives outside
+      # the repository so the run above never sees it, and it carries a defect
+      # zizmor does not look for — an unknown runner label.
+      - name: actionlint detects a broken workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          mkdir -p "$work/.github/workflows"
+          cat > "$work/.github/workflows/broken.yml" <<'YAML'
+          name: broken
+          on: push
+          jobs:
+            broken:
+              runs-on: ubunut-latest
+              steps:
+                - run: echo hello
+          YAML
+          if ./actionlint -no-color "$work/.github/workflows/broken.yml"; then
+            echo "actionlint accepted a workflow it should have rejected — this gate proves nothing"
+            exit 1
+          fi
+          echo "actionlint rejected the broken fixture, as a working linter must"
