@@ -14,6 +14,7 @@
 // Cases, mapped to the findings they re-create:
 //   deep-nested-task   a task.json three directory levels under Tasks/, which
 //                      every gate skipped and the packager shipped        (#37)
+//   nested-task-json   a task.json inside an otherwise-valid task directory (#37)
 //   stray-file         a payload beside it, outside every task directory  (#37)
 //   missing-asset      the manifest pointing at a file that is not there (#42,#46)
 //   missing-icon       images/icon.png deleted out from under the manifest (#46)
@@ -172,6 +173,20 @@ try {
       fs.writeFileSync(path.join(deep, 'evil.js'), "require('node:child_process')\n")
     },
     'Tasks/Deep/Nested/DeepV1/task.json',
+  )
+
+  // #37 — the same reciprocal assertion one level in: a task.json nested INSIDE
+  // an otherwise-valid task directory is also a path the two-level walk never
+  // returns, and it is packaged just the same.
+  expectRejection(
+    'nested-task-json',
+    GATE,
+    (dir) => {
+      const nested = path.join(dir, 'Tasks', 'Alpha', 'AlphaV1', 'nested')
+      fs.mkdirSync(nested, { recursive: true })
+      fs.writeFileSync(path.join(nested, 'task.json'), JSON.stringify({ id: 'not-a-guid', name: 'Smuggled' }))
+    },
+    'Tasks/Alpha/AlphaV1/nested/task.json',
   )
 
   // #37 — the shallower half: a payload under Tasks/ that is in no task at all.

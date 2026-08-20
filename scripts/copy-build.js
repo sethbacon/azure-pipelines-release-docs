@@ -35,7 +35,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const { discoverTaskDirs, walkTree, toPosix } = require('./lib/task-dirs.js')
+const { discoverTaskDirs, walkTree, insideTaskDir, toPosix } = require('./lib/task-dirs.js')
 const contents = require('./lib/package-contents.js')
 
 const root = path.join(__dirname, '..')
@@ -112,13 +112,14 @@ fs.mkdirSync(build, { recursive: true })
 const taskDirs = discoverTaskDirs(root)
 for (const dir of taskDirs) copyTree(dir)
 
-const strays = walkTree(root, 'Tasks', (rel) => !contents.directoryDropped(rel) && !taskDirs.some((d) => rel === d || rel.startsWith(`${d}/`)))
-  .filter((e) => e.kind === 'file' || e.kind === 'symlink')
-  .filter((e) => !taskDirs.some((d) => e.rel === d || e.rel.startsWith(`${d}/`)))
+const outsideTask = (rel) => !insideTaskDir(rel, taskDirs)
+const strays = walkTree(root, 'Tasks', (rel) => !contents.directoryDropped(rel) && outsideTask(rel))
+  .filter((e) => (e.kind === 'file' || e.kind === 'symlink') && outsideTask(e.rel))
   .filter((e) => contents.classify(e.rel).verdict !== contents.DROP)
 for (const stray of strays) {
+  const what = stray.kind === 'symlink' ? 'symlink under Tasks/' : 'under Tasks/'
   refuse(
-    `${stray.rel}: under Tasks/ but outside every canonical task directory ` +
+    `${stray.rel}: ${what} but outside every canonical task directory ` +
       `(${taskDirs.length === 0 ? 'there are none' : taskDirs.join(', ')}) — run scripts/check-package-composition.js`,
   )
 }

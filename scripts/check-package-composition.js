@@ -84,16 +84,20 @@ for (const entry of tasksEntries) {
     continue
   }
 
+  // #37, the reciprocal assertion, stated as the audit stated it: walk Tasks/
+  // recursively and fail if a task.json exists at ANY path the two-level walk
+  // did not return. That covers one nested inside an otherwise-valid task
+  // directory as well as one at Tasks/<a>/<b>/<c>/ — neither is enumerated, and
+  // both are packaged.
+  if (kind === 'file' && path.basename(rel) === 'task.json' && !taskDirs.includes(path.posix.dirname(rel))) {
+    fail(
+      `${rel}: task.json at a path the gates do not enumerate — tasks are Tasks/<Family>/<TaskDir>/task.json (exactly two directory levels). ` +
+        `A task here is never version-checked, never compiled, never tested, and would still be packaged`,
+    )
+    continue
+  }
+
   if (!inTask && !isTaskDirAncestor) {
-    // #37, the reciprocal assertion. A task.json here is a task that every gate
-    // in the repo would skip and the packager would ship.
-    if (path.basename(rel) === 'task.json') {
-      fail(
-        `${rel}: task.json at a depth the gates do not enumerate — tasks are Tasks/<Family>/<TaskDir>/task.json (exactly two directory levels). ` +
-          `A task here is never version-checked, never compiled, never tested, and would still be packaged`,
-      )
-      continue
-    }
     const verdict = contents.classify(rel)
     if (verdict.verdict === contents.DROP) {
       // Shared dev-only files at the Tasks/ root (tsconfig.base.json,
