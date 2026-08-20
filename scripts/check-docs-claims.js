@@ -152,6 +152,22 @@ const CONTROLS = {
     // replaced (#21, #22, #23, #30).
     detect: () => inWorkflows(/check-workflow-hardening\.js/),
   },
+  'dependency-scan': {
+    summary: 'a workflow runs a dependency vulnerability scan beyond the npm registry\'s own advisory database',
+    // The scanner, not the schedule: `npm audit` is already in ci.yml and is a
+    // different control (its scope is gated by check-audit-scope.js). This row
+    // is about OSV coverage specifically, which is what #58 asked for and what
+    // the siblings run weekly.
+    //
+    // Anchored to `uses:` on purpose. A bare /osv-scanner/i matched the step
+    // that echoes "## OSV-Scanner results" into the job summary, so deleting the
+    // scanner and keeping the heading left this row reading `enforced` and the
+    // gate reporting OK — caught by mutating it, which is the only way that kind
+    // of thing is ever caught. If this control is ever reimplemented as a
+    // checksum-verified binary download (see SECURITY.md's residual risk about
+    // the mutable image tag), this expression has to move with it.
+    detect: () => inWorkflows(/uses:\s*\S*osv-scanner/i),
+  },
   'sbom-attestation': {
     summary: 'an SBOM is generated and attested by a workflow',
     // Workflows only. An `sbom` npm script that no job calls satisfies section 4

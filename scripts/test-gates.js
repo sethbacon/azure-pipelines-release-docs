@@ -2,8 +2,10 @@
 'use strict'
 
 // Mutation self-test for the VERSION / UNIVERSE / PUBLISH-IDENTITY / AUDIT-SCOPE
-// gates — scripts/check-versions.js, scripts/for-each-task.js,
-// scripts/check-audit-scope.js and the declaration in scripts/lib/task-dirs.js.
+// / DEPENDABOT-COVERAGE gates — scripts/check-versions.js,
+// scripts/for-each-task.js, scripts/check-audit-scope.js,
+// scripts/check-dependabot-coverage.js and the declaration in
+// scripts/lib/task-dirs.js.
 //
 // Companion to scripts/test-package-composition.js, which does the same for the
 // composition path. Same contract, because it is the only one worth anything: a
@@ -28,6 +30,8 @@
 //   configs-missing             the override directory gone                (#43)
 //   universe-*                  the empty-universe contract, both ways     (#39)
 //   audit-*                     a required audit job inspecting nothing (#20,#54)
+//   dependabot-*                a task's lockfile nobody watches, and the
+//                               reverse: an entry watching nothing        (#25)
 //
 // The scaffold case is the one to read closely: it asserts that a tree with a
 // DECLARED-empty Tasks/ exits 0 while SAYING it proved nothing. That is the
@@ -46,6 +50,7 @@ const workRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'release-docs-gates-'))
 
 const VERSIONS = path.join('scripts', 'check-versions.js')
 const AUDIT_SCOPE = path.join('scripts', 'check-audit-scope.js')
+const DEPENDABOT = path.join('scripts', 'check-dependabot-coverage.js')
 const FOR_EACH = path.join('scripts', 'for-each-task.js')
 
 const EXTENSION_ID = 'fixture-extension'
@@ -72,6 +77,8 @@ function makeCleanTree(name, { tasks = ['Alpha', 'Beta'] } = {}) {
   fs.cpSync(path.join(repoRoot, 'scripts'), path.join(dir, 'scripts'), { recursive: true })
   fs.cpSync(path.join(repoRoot, '.github', 'workflows'), path.join(dir, '.github', 'workflows'), { recursive: true })
   fs.copyFileSync(path.join(repoRoot, 'package-lock.json'), path.join(dir, 'package-lock.json'))
+  writeJson(path.join(dir, 'package.json'), { name: 'fixture-root', private: true })
+  writeDependabot(dir, tasks.map((task) => `Tasks/${task}/${task}V1`))
 
   writeJson(path.join(dir, 'azure-devops-extension.json'), {
     manifestVersion: 1,
@@ -95,13 +102,53 @@ function makeCleanTree(name, { tasks = ['Alpha', 'Beta'] } = {}) {
 
   if (tasks.includes('Alpha')) {
     writeJson(path.join(dir, 'Tasks', 'Alpha', 'AlphaV1', 'task.json'), alphaTask)
+    writeJson(path.join(dir, 'Tasks', 'Alpha', 'AlphaV1', 'package.json'), { name: 'alpha', private: true })
     fs.writeFileSync(path.join(dir, 'Tasks', 'Alpha', 'AlphaV1', 'index.js'), "'use strict'\n")
   }
   if (tasks.includes('Beta')) {
     writeJson(path.join(dir, 'Tasks', 'Beta', 'BetaV1', 'task.json'), betaTask)
+    writeJson(path.join(dir, 'Tasks', 'Beta', 'BetaV1', 'package.json'), { name: 'beta', private: true })
     fs.writeFileSync(path.join(dir, 'Tasks', 'Beta', 'BetaV1', 'index.js'), "'use strict'\n")
   }
   return dir
+}
+
+/**
+ * A dependabot config covering the root and every task directory the fixture
+ * builds — i.e. the state the repository has to be in once tasks land, and the
+ * one the coverage gate is mutated away from below.
+ */
+function writeDependabot(dir, taskDirs) {
+  const entry = (directory) => [
+    '  - package-ecosystem: npm',
+    `    directory: "/${directory}"`,
+    '    schedule:',
+    '      interval: weekly',
+  ]
+  const lines = [
+    'version: 2',
+    '',
+    'updates:',
+    '  - package-ecosystem: github-actions',
+    '    directory: "/"',
+    '    schedule:',
+    '      interval: weekly',
+    '    groups:',
+    '      github-actions-dependencies:',
+    '        patterns:',
+    '          - "*"',
+    ...entry(''),
+    ...taskDirs.flatMap((taskDir) => entry(taskDir)),
+    '',
+  ]
+  fs.mkdirSync(path.join(dir, '.github'), { recursive: true })
+  fs.writeFileSync(path.join(dir, '.github', 'dependabot.yml'), lines.join('\n'))
+}
+
+/** Rewrite a fixture's dependabot config as text, the way a maintainer would. */
+function editDependabot(dir, mutate) {
+  const file = path.join(dir, '.github', 'dependabot.yml')
+  fs.writeFileSync(file, mutate(fs.readFileSync(file, 'utf8')))
 }
 
 function git(dir, args) {
@@ -196,6 +243,7 @@ try {
   console.log('clean trees:')
   expectPass('clean-versions', VERSIONS, { git: true }, ['examined 2 task manifest(s)', '2 compared against'])
   expectPass('clean-audit-scope', AUDIT_SCOPE, {}, ['Audit scope check passed'])
+  expectPass('clean-dependabot', DEPENDABOT, {}, ['all 2 task director(ies) are enumerated', '3 npm entr(ies)'])
 
   // The load-bearing case. A DECLARED-empty tree is allowed to exit 0 — and is
   // required to say, in words, that it validated nothing. "Nothing to examine
@@ -210,6 +258,14 @@ try {
   expectPass('scaffold-for-each', FOR_EACH, { tasks: [], args: ['compile'] }, [
     'SCAFFOLD: 0 tasks enumerated',
     "'compile' ran against nothing",
+  ])
+  // The declared-empty case for #25 specifically: zero task directories means
+  // the coverage half of this gate enumerated nothing, and it has to say so
+  // while still proving what it CAN prove about the entries that exist.
+  expectPass('scaffold-dependabot', DEPENDABOT, { tasks: [] }, [
+    'SCAFFOLD: 0 tasks enumerated',
+    'proved nothing about it',
+    '0 task director(ies) on disk',
   ])
 
   console.log('mutations — the universe contract (#39):')
@@ -446,6 +502,84 @@ try {
     AUDIT_SCOPE,
     (dir) => writeJson(path.join(dir, 'package-lock.json'), { name: 'fixture', lockfileVersion: 3, packages: { '': {} } }),
     ['resolves 0 packages'],
+  )
+
+  console.log('mutations — dependabot coverage (#25):')
+
+  // THE case. A task lands and nobody edits .github/dependabot.yml: its
+  // lockfile is then watched by nothing, and every other control stays green
+  // because none of them looks inside a task directory either.
+  expectRejection(
+    'dependabot-task-unwatched',
+    DEPENDABOT,
+    (dir) => editDependabot(dir, (yaml) => yaml.replace('  - package-ecosystem: npm\n    directory: "/Tasks/Beta/BetaV1"\n    schedule:\n      interval: weekly\n', '')),
+    ['Tasks/Beta/BetaV1', 'no automated updates at all', 'directory: "/Tasks/Beta/BetaV1"'],
+  )
+  // A glob covers what it matches. `Tasks/*` does NOT reach two levels down, so
+  // a config that looks like coverage and is not must still fail.
+  expectRejection(
+    'dependabot-glob-too-shallow',
+    DEPENDABOT,
+    (dir) =>
+      editDependabot(dir, (yaml) =>
+        yaml
+          .replace('    directory: "/Tasks/Alpha/AlphaV1"', '    directories:\n      - "/Tasks/*"')
+          .replace('    directory: "/Tasks/Beta/BetaV1"', '    directories:\n      - "/Tasks/*"'),
+      ),
+    ['Tasks/Alpha/AlphaV1', 'no automated updates at all'],
+  )
+  // And the same glob written to the right depth is coverage, so the gate is
+  // not simply rejecting globs.
+  expectPass(
+    'dependabot-glob-matches',
+    DEPENDABOT,
+    {
+      mutate: (dir) =>
+        editDependabot(dir, (yaml) =>
+          yaml
+            .replace('    directory: "/Tasks/Alpha/AlphaV1"', '    directories:\n      - "/Tasks/*/*"')
+            .replace('    directory: "/Tasks/Beta/BetaV1"', '    directories:\n      - "/Tasks/*/*"'),
+        ),
+    },
+    ['all 2 task director(ies) are enumerated'],
+  )
+  // The other direction: an entry that watches nothing. Dependabot logs a
+  // missing directory and carries on, so the row reads as coverage forever.
+  expectRejection(
+    'dependabot-phantom-directory',
+    DEPENDABOT,
+    (dir) => editDependabot(dir, (yaml) => yaml.replace('"/Tasks/Beta/BetaV1"', '"/Tasks/Beta/BetaV2"')),
+    ['names a directory that does not exist', 'coverage it does not provide'],
+  )
+  expectRejection(
+    'dependabot-directory-without-package',
+    DEPENDABOT,
+    (dir) => fs.rmSync(path.join(dir, 'Tasks', 'Beta', 'BetaV1', 'package.json')),
+    ['no package.json', 'inert'],
+  )
+  expectRejection(
+    'dependabot-root-dropped',
+    DEPENDABOT,
+    (dir) => editDependabot(dir, (yaml) => yaml.replace('  - package-ecosystem: npm\n    directory: "/"\n    schedule:\n      interval: weekly\n', '')),
+    ['no npm entry for `directory: "/"`'],
+  )
+  expectRejection(
+    'dependabot-no-npm-entry',
+    DEPENDABOT,
+    (dir) => editDependabot(dir, (yaml) => yaml.replace(/  - package-ecosystem: npm/g, '  - package-ecosystem: nuget')),
+    ['declares no `package-ecosystem: npm` entry at all'],
+  )
+  expectRejection(
+    'dependabot-file-missing',
+    DEPENDABOT,
+    (dir) => fs.rmSync(path.join(dir, '.github', 'dependabot.yml')),
+    ['not found', 'pass over an empty set'],
+  )
+  expectRejection(
+    'dependabot-no-updates-list',
+    DEPENDABOT,
+    (dir) => fs.writeFileSync(path.join(dir, '.github', 'dependabot.yml'), 'version: 2\n'),
+    ['no top-level `updates:` list'],
   )
 } finally {
   fs.rmSync(workRoot, { recursive: true, force: true })

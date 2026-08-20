@@ -16,6 +16,10 @@
 //   pin-unlabelled           a SHA nobody can review or update           (#30)
 //   install-workflow         `npm ci` in a workflow losing the flag      (#21)
 //   install-per-task         for-each-task.js losing it, as it had       (#21)
+//   per-task-cmd-wrapper     npm.cmd back on the win32 branch            (#45)
+//   per-task-shell-option    `shell: true`, the repair that is worse     (#45)
+//   per-task-path-lookup     a bare `npm` off PATH                       (#45)
+//   per-task-no-npm-helper   no npm() helper for the gate to read        (#45)
 //   no-timeout               a job that can hold a runner for six hours  (#22)
 //   no-harden-runner         the one job that skipped it                 (#22)
 //   audit-unexplained        egress downgraded with no stated reason     (#23)
@@ -105,7 +109,9 @@ const ACTIONS = {
   audit: (dir) => npm(['audit', '--audit-level=high']),
 }
 
-function npm(args) {}
+function npm(args, options = {}) {
+  execFileSync(process.execPath, [npmCli(), ...args], { stdio: 'inherit', ...options })
+}
 `
 
 function makeCleanTree(name) {
@@ -116,6 +122,11 @@ function makeCleanTree(name) {
   fs.writeFileSync(path.join(dir, '.github', 'workflows', 'beta.yml'), BETA)
   fs.writeFileSync(path.join(dir, 'scripts', 'for-each-task.js'), FOR_EACH_TASK)
   return dir
+}
+
+const editForEachTask = (dir, fn) => {
+  const full = path.join(dir, 'scripts', 'for-each-task.js')
+  fs.writeFileSync(full, fn(fs.readFileSync(full, 'utf8')))
 }
 
 const editWorkflow = (dir, file, fn) => {
@@ -207,6 +218,35 @@ try {
     'install-per-task-absent',
     (dir) => fs.rmSync(path.join(dir, 'scripts', 'for-each-task.js')),
     ['the per-task install this gate exists to check is absent'],
+  )
+
+  console.log('\nmutations — the per-task npm spawn (#45):')
+  // The defect exactly as it stood: a ternary on process.platform whose win32
+  // half names a .cmd. execFileSync cannot launch one, and Tasks/ being empty
+  // is the only reason the windows-2025 leg has never proved it.
+  expectRejection(
+    'per-task-cmd-wrapper',
+    (dir) => editForEachTask(dir, (js) => js.replace('process.execPath, [npmCli(), ...args]', "process.platform === 'win32' ? 'npm.cmd' : 'npm', args")),
+    ['spawns a platform command wrapper', "'npm.cmd'", 'EINVAL'],
+  )
+  // The repair that suggests itself and must not be taken: `shell: true` makes
+  // the .cmd launchable and hands cmd.exe an unescaped args array (DEP0190).
+  expectRejection(
+    'per-task-shell-option',
+    (dir) => editForEachTask(dir, (js) => js.replace("{ stdio: 'inherit', ...options }", "{ stdio: 'inherit', shell: true, ...options }")),
+    ['passes a `shell:` option', 'DEP0190'],
+  )
+  // A spawn that is neither: back to a PATH lookup for a bare `npm`, which is
+  // the same class one platform down.
+  expectRejection(
+    'per-task-path-lookup',
+    (dir) => editForEachTask(dir, (js) => js.replace('process.execPath, [npmCli(), ...args]', "'npm', args")),
+    ['does not spawn `process.execPath`'],
+  )
+  expectRejection(
+    'per-task-no-npm-helper',
+    (dir) => editForEachTask(dir, (js) => js.replace(/function npm\s*\([\s\S]*$/, '')),
+    ['defines no `npm(` helper'],
   )
 
   console.log('\nmutations — timeouts and harden-runner coverage (#22):')

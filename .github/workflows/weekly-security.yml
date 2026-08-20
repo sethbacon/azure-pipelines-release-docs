@@ -1,0 +1,158 @@
+---
+name: Weekly Security Scan
+
+# The layer that runs when no pull request and no release is in flight.
+#
+# Everything else in this repository is triggered by a change: CI on a pull
+# request, release.yml on a tag. Nothing was watching the intervals between
+# them, and dependency risk does not arrive on a change — an advisory published
+# on a Tuesday makes a tree that was clean on Monday vulnerable without a commit
+# (#58). The sibling extensions have run a weekly-security.yml for months; this
+# is the release-docs port.
+#
+# TWO JOBS, AND WHAT WAS DELIBERATELY NOT PORTED.
+#
+#   ci      re-runs the whole of ci.yml against main with nothing in flight.
+#           That is the drift canary: `npm audit` re-evaluated against advisories
+#           published since the last merge, actionlint's pinned release asset
+#           still being downloadable at the URL and checksum committed here, the
+#           gate self-tests still passing on an unchanged tree. A required
+#           context that has quietly stopped working looks exactly like one that
+#           has nothing to report, and on a repository that can go weeks between
+#           pull requests the difference matters.
+#
+#   osv-scan is broader advisory coverage than `npm audit`, which sees only what
+#           the npm registry's own advisory database carries.
+#
+# NOT ported from the siblings, each for a stated reason rather than an
+# oversight:
+#
+#   * The stale-Dependabot-PR labeller. It ends in `|| true`, so on a repository
+#     without a `stale-security-patch` label it fails silently and reports
+#     success — a canary that cannot chirp. If that label is created here, port
+#     it then.
+#   * The "create an issue on failure" job. A scheduled workflow that fails
+#     already notifies the repository's maintainer, and issue-filing needs
+#     `security`/`dependencies` labels that this repository does not carry.
+#   * A marketplace-environment-protection canary. `scripts/check-release-
+#     readiness.js` deliberately FAILS today — `azure-devops-extension.json`
+#     declares no contributions, so there is nothing publishable — and a check
+#     that is red every Monday by design teaches everyone to ignore Monday.
+#     It becomes worth scheduling on the day the first task lands.
+
+"on":
+  schedule:
+    # Monday 08:00 UTC, matching the siblings so the family's weekly results
+    # land together.
+    - cron: "0 8 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  # The drift canary. A reusable-workflow call carries no steps and no
+  # timeout-minutes of its own; ci.yml's jobs carry theirs.
+  ci:
+    name: CI
+    # ci.yml's zizmor job uploads SARIF, so the called workflow needs more than
+    # this workflow's default `contents: read`. A called workflow can only ever
+    # narrow what the caller grants, so the caller has to grant it here — the
+    # same reason, and the same block, as release.yml's `ci` job.
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/ci.yml
+
+  # ── OSV-Scanner ───────────────────────────────────────────────────────────
+  # WHAT THE SHA PIN DOES AND DOES NOT COVER. Read this before treating the pin
+  # below as an integrity control.
+  #
+  # `google/osv-scanner-action/osv-scanner-action` is a DOCKER action. Its
+  # action.yml — the file this SHA pins — is four lines of metadata whose only
+  # substantive content is:
+  #
+  #     runs:
+  #       using: "docker"
+  #       image: "docker://ghcr.io/google/osv-scanner-action:v2.5.0"
+  #
+  # `v2.5.0` there is a MUTABLE TAG on a registry this repository does not
+  # control. The pin therefore fixes which action.yml runs and NOT which scanner
+  # binary runs: whoever can push to that ghcr tag replaces the code executing
+  # in this job, and neither the pin, nor Dependabot, nor this repository's
+  # own full-SHA gate would see it. `azure-pipelines-packer#261` bumped this
+  # action 2.3.8 -> 2.5.0 without that being said anywhere, which is exactly how
+  # a limitation gets inherited instead of accepted.
+  #
+  # Accepted rather than fixed, and the reasons are worth being explicit about:
+  # the image reference lives INSIDE the third-party action, so there is nothing
+  # this repository can pass to pin it; the alternative is to stop using the
+  # action and run the scanner binary from a checksum-verified release download,
+  # which is what the actionlint step in ci.yml does and is a bigger change than
+  # #58 asks for. What bounds the exposure meanwhile is where this runs: a
+  # scheduled job, on `contents: read`, holding no stored credential, on a tree
+  # with no production dependencies. It is recorded in SECURITY.md's residual
+  # risks so that it is a decision with a date on it rather than an assumption.
+  osv-scan:
+    name: OSV Vulnerability Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      # hardening-exception: egress-audit — this job holds no stored credential
+      # and its egress is a container pull from ghcr plus the scanner's own
+      # queries to the OSV API, a destination set that belongs to upstream
+      # rather than to this file. The two jobs in this repository that DO hold a
+      # stored App private key — release-please and signature-replay's replay —
+      # are on `block` with an explicit allowlist (#23).
+      - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No `continue-on-error:` here, unlike the sibling. That flag rewrites a
+      # failed step's `conclusion` to `success`, and the sibling then reads
+      # `outcome` to file an issue — a design that needs the issue-filing job
+      # this port does not have. Without it, a finding turns this scheduled run
+      # red, which is the notification. The tree has no production dependencies
+      # today, so a permanently-red Monday is not the risk here; a silently
+      # green one is.
+      - name: Run OSV-Scanner
+        uses: google/osv-scanner-action/osv-scanner-action@8deb546fdb875b9996d27d4950be7312dac076a1 # v2.5.0
+        with:
+          scan-args: |-
+            --recursive
+            .
+            --format=table
+            --output=osv-results.txt
+
+      # Runs even when the scan step failed, so the findings are readable in the
+      # run's Summary tab rather than only in the step log.
+      - name: Publish OSV results to the job summary
+        if: always()
+        run: |
+          set -euo pipefail
+          {
+            echo '## OSV-Scanner results'
+            echo
+            if [ -s osv-results.txt ]; then
+              echo '```'
+              cat osv-results.txt
+              echo '```'
+            else
+              echo 'No known vulnerabilities found in the scanned lockfiles.'
+            fi
+            echo
+            # No backticks in these two lines: shellcheck reads a backtick pair
+            # inside a single-quoted string as an unexpanded command
+            # substitution (SC2016) and actionlint runs shellcheck over every
+            # `run:` block, so prose punctuation fails a required context.
+            echo 'Scanned by a Docker action on a mutable image tag: the SHA pin covers its action.yml,'
+            echo 'not the scanner image. See the comment at the top of this job and the residual risks'
+            echo 'in SECURITY.md.'
+          } >> "$GITHUB_STEP_SUMMARY"
