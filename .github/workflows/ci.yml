@@ -176,19 +176,34 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # An explicit threshold rather than whatever the action defaults to. The
-      # step carried no `with:` block at all, so what this required check would
-      # and would not fail on was an upstream decision this repository had not
-      # made (#30). `unknown` for both filters is zizmor's own no-filtering
-      # setting: everything it finds fails the job, which is what it was already
-      # doing and is now stated. .github/zizmor.yml carries the policy — every
-      # `uses:` must be hash-pinned — and the two documented, line-scoped
-      # exceptions.
-      - uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+      # TWO passes, deliberately, because one call cannot do both jobs.
+      # `advanced-security: true` (the default) makes the action run zizmor with
+      # --format=sarif, and in that mode zizmor EXITS 0 whatever it finds -- the
+      # results are meant to be triaged in the security tab. This job was green
+      # for exactly that reason while carrying four error-severity findings, and
+      # the comment here used to claim the filters made everything fail the job.
+      # They do not; they only select what is reported.
+      #
+      # So: the first pass records findings durably (dismissible, with a reason
+      # that survives); the second re-runs in github format, where zizmor's own
+      # exit code stands, so a new finding blocks the merge.
+      # .github/zizmor.yml carries the policy -- every `uses:` must be hash-pinned
+      # -- and the two documented, line-scoped exceptions.
+      # No min-severity/min-confidence: zizmor reports everything by default, and
+      # it now warns that the `unknown` this used to pass "is a deprecated minimum
+      # severity that has no effect" which "future versions will reject" -- a
+      # no-op today and a broken required check on the next major.
+      - name: Record findings in the security tab
+        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
         with:
           persona: regular
-          min-severity: unknown
-          min-confidence: unknown
+          online-audits: true
+      - name: Fail on any finding
+        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+        with:
+          advanced-security: false
+          annotations: true
+          persona: regular
           online-audits: true
 
   # A job of its own rather than another step on `manifest`. Steps bolted onto
