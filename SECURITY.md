@@ -98,7 +98,9 @@ every pull request to `main`, and all of them are configured as required status 
   `.cmd` wrapper or a shell (#45). Both carry mutation self-tests that run beside them on every pull
   request, and so does the one guard in this repository that is a shell script embedded in YAML:
   `scripts/test-breaking-change-footers.js` extracts the breaking-change counter out of
-  `pr-checks.yml` and runs it against fixture commit histories.
+  `pr-checks.yml` and runs it against fixture commit histories — including one served by a `gh`
+  that exits non-zero, so the counter is proved to fail closed on a commit list it cannot read
+  rather than report zero declarations and go green.
 - **Dependency audit** — `npm audit` over the root lockfile and `npm run audit:all` over each task's,
   with `scripts/check-audit-scope.js` refusing a run that would inspect an empty tree (#20, #54) and
   `scripts/check-dependabot-coverage.js` refusing a task directory whose lockfile no
