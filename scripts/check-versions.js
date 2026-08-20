@@ -209,9 +209,18 @@ if (tasks.length > 0) {
             changed = true
           }
           if (changed) {
-            errors.push(
-              `${rel}: ${dir} changed since ${base} but version ${now.join('.')} did not move — agents that already ` +
-                'cached this version will keep running the old code',
+            // A NOTE, not an error. The property is real -- agents cache by
+            // Major.Minor, so shipping changed code under a cached version does
+            // not reach them -- but nothing ships from a pull request, and
+            // requiring the bump HERE is unsatisfiable for the bots that raise
+            // most task-directory changes: Dependabot cannot edit task.json, so
+            // every weekly dependency PR was permanently red. It is enforced
+            // where it bites instead, by scripts/check-minor-bumps.js against
+            // the previous release tag, which is also stricter: it demands the
+            // MINOR move, not merely some component of the triple.
+            notes.push(
+              `${rel}: ${dir} changed since ${base} but version ${now.join('.')} did not move — ` +
+                'check-minor-bumps.js requires the Minor bump on the release PR',
             )
           }
         }

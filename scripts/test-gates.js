@@ -21,7 +21,8 @@
 //   dup-malformed-id            a bad id skipped registration, so a second
 //                               task could reuse it silently               (#38)
 //   version-regression          a task version moving backwards            (#44)
-//   version-not-bumped          task code changed, version did not         (#44)
+//   version-not-bumped          task code changed, version did not -- a NOTE;
+//                               check-minor-bumps.js rejects it at release (#44)
 //   history-unresolvable        tasks present, previous versions unreadable(#44)
 //   dev-public / dev-gallery    a dev override opting into a public listing(#43)
 //   release-not-public          the release override NOT opting in         (#43)
@@ -382,12 +383,19 @@ try {
     ['is BELOW 2.1.0', 'cache'],
     { git: true },
   )
-  expectRejection(
-    'version-not-bumped',
+  // Changed code with an unmoved version is REPORTED, not rejected: nothing
+  // ships from a pull request, and Dependabot cannot edit task.json, so failing
+  // here only made every weekly dependency PR permanently red.
+  // scripts/check-minor-bumps.js enforces it against the previous release tag,
+  // and demands the Minor specifically.
+  expectPass(
+    'version-not-bumped-is-a-note',
     VERSIONS,
-    (dir) => fs.writeFileSync(path.join(dir, 'Tasks', 'Alpha', 'AlphaV1', 'index.js'), "'use strict'\nrequire('node:child_process')\n"),
-    ['changed since', 'did not move'],
-    { git: true },
+    {
+      git: true,
+      mutate: (dir) => fs.writeFileSync(path.join(dir, 'Tasks', 'Alpha', 'AlphaV1', 'index.js'), "'use strict'\nrequire('node:child_process')\n"),
+    },
+    ['did not move', 'check-minor-bumps'],
   )
   // Tasks present and no readable history: unverifiable is not verified.
   expectRejection(
