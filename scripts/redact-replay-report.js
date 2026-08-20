@@ -177,6 +177,16 @@ if (errors.length > 0) {
   process.exit(1)
 }
 
+// Redact BEFORE the footer is built, not inside the write below: the counters
+// are incremented by the walk, so a footer composed first reported "0 site(s)
+// across 0 list(s)" while the console line said 243 across 84. The footer is
+// the evidence a reader actually sees — it does not get to be the one number
+// that is wrong.
+const redactedReport =
+  report === null
+    ? { exit: status, redacted: true, note: 'replay exited before producing a report; see the job log' }
+    : { ...redact(report), redacted: true }
+
 const footer = [
   '',
   '-'.repeat(78),
@@ -188,17 +198,7 @@ const footer = [
 ].join('\n')
 
 fs.writeFileSync(outText, `${text}${footer}`, 'utf8')
-fs.writeFileSync(
-  outJson,
-  `${JSON.stringify(
-    report === null
-      ? { exit: status, redacted: true, note: 'replay exited before producing a report; see the job log' }
-      : { ...redact(report), redacted: true },
-    null,
-    2,
-  )}\n`,
-  'utf8',
-)
+fs.writeFileSync(outJson, `${JSON.stringify(redactedReport, null, 2)}\n`, 'utf8')
 
 console.log(
   `redact-replay-report: ${droppedLines} site line(s) dropped from the log, ${redactedSites} site(s) across ` +

@@ -165,6 +165,14 @@ try {
       report(parsed.pins.length === 1 && parsed.redacted === true, 'clean: check 2 and the redaction marker survive')
       report(r.text.includes('REDACTED for publication') && r.text.includes('replay.py'), 'clean: the log says what was withheld and how to reproduce it')
       report(r.text.includes('[FAIL] #393') && r.text.includes('matched 2 site(s)'), 'clean: the per-issue verdict lines are kept')
+      // The footer is the evidence a reader sees, so its arithmetic is asserted
+      // rather than assumed: it once said "0 site(s) across 0 list(s)" on a run
+      // that had just redacted 243 across 84, because it was composed before
+      // the walk that counts them.
+      report(
+        r.text.includes('2 site line(s) removed from this log and 7 site(s) across 8 list(s) reduced to counts'),
+        'clean: the footer counts what was actually removed, not zero',
+      )
     }
   }
 
