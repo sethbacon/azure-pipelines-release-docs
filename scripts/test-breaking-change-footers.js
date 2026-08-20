@@ -89,7 +89,14 @@ function extractRunBlock(yaml, key) {
   const runAt = body.findIndex((line) => /^\s+run:\s*\|\s*$/.test(line))
   if (runAt === -1) return { error: `job \`${key}\` has no \`run: |\` block` }
 
-  const indent = /^(\s+)/.exec(body[runAt + 1] || '')
+  // Indent comes from the first NON-BLANK line of the block. Taking it from
+  // `runAt + 1` unconditionally would turn a block that merely opens with a
+  // blank line -- which is exactly what deleting the `set -euo pipefail` line
+  // leaves behind -- into "block is empty", and this file would then report
+  // that instead of running its cases against the guard it still has.
+  let firstBody = runAt + 1
+  while (firstBody < body.length && body[firstBody].trim() === '') firstBody += 1
+  const indent = /^(\s+)/.exec(body[firstBody] || '')
   if (!indent) return { error: `job \`${key}\`'s \`run: |\` block is empty` }
 
   const script = []
