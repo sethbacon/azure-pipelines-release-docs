@@ -1,5 +1,15 @@
 # Changelog
 
+> **0.1.0 through 0.1.6 were never released.** Each exists only as a *draft* GitHub Release, and
+> GitHub does not create a Git tag for a draft, so this repository has no tags at all
+> (`git ls-remote --tags origin` is empty). Unable to find a previous release to anchor on,
+> release-please re-read the whole history on every run: that is why the same commits appear under
+> every heading below, why the `compare/v0.1.5...v0.1.6` links do not resolve, and why the version
+> advanced on pushes that shipped nothing. `force-tag-creation` is now set alongside `draft` in
+> `.release-please-config.json`, so the next release cuts a real tag and the entry after this one
+> lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
+> these versions.
+
 ## [0.1.6](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v0.1.5...v0.1.6) (2026-08-19)
 
 

@@ -24,7 +24,7 @@ external systems (a ServiceNow instance, a Git remote). The surfaces that matter
 - **Egress** — every outbound request to an operator-configurable URL must be host-authorised against
   the resolved address, and re-authorised on each redirect hop.
 - **Supply chain** — the integrity of the `.vsix` and of the path that publishes it. See
-  [Supply chain controls](#supply-chain-controls): none of those controls exists here yet.
+  [Supply chain controls](#supply-chain-controls).
 
 Note the tense. No task is implemented in this repository, so the first four bullets describe the
 code this extension is being built to hold rather than code it holds today. They are written down now
@@ -33,42 +33,50 @@ discovering them for the first time.
 
 ## Supply chain controls
 
-**Status as of 2026-08-19: not one of the controls below is implemented.** This repository builds no
-`.vsix`, signs nothing, attests nothing, and publishes nothing. A `marketplace` GitHub Environment
-and `AZDO_PUBLISH_CLIENT_ID`/`AZDO_PUBLISH_TENANT_ID` variables do exist in repository settings, but
-no workflow references any of them, so nothing deploys through that gate and the approval it would
-impose is inert.
-
-The intent is real and is recorded here so that it survives: before the first Marketplace release,
-this repository adopts the publish path the sibling extensions
+**Status as of 2026-08-19: the publish path exists and has never run.**
+`.github/workflows/release.yml` builds, packages, signs and attests the `.vsix` and publishes it
+behind the `marketplace` GitHub Environment, using the `AZDO_PUBLISH_CLIENT_ID`/`AZDO_PUBLISH_TENANT_ID`
+variables and a GitHub OIDC to Microsoft Entra federated credential rather than a stored token. It was
+ported from the sibling extensions
 ([azure-pipelines-terraform](https://github.com/sethbacon/azure-pipelines-terraform),
-[azure-pipelines-packer](https://github.com/sethbacon/azure-pipelines-packer)) already run —
-guard, build, package, SBOM-and-sign, draft release, environment-gated publish. That is tracked as
-issues #26 and #57 and is deliberately taken as one reviewed change rather than piecemeal.
+[azure-pipelines-packer](https://github.com/sethbacon/azure-pipelines-packer)) rather than written
+here, and the header of that file records where the two siblings disagree and which side this
+repository followed.
 
-Until then this table is the whole truth about the artifact's integrity, and it is machine-checked:
-`scripts/check-docs-claims.js` (CI job **Check Documented Claims**) reads it on every pull request and
-compares each row against `.github/workflows/`. The comparison runs in both directions. A row marked
-`enforced` that no workflow implements fails the build — that is the defect this table replaces. A row
-marked `planned` whose control has appeared in a workflow fails it too, and that is the direction that
-matters from here: when the publish path lands, this table has to be updated in the same change. It
-cannot quietly become true.
+It has never run because it cannot yet complete. `azure-devops-extension.json` declares
+`"contributions": []` and `tfx extension create` refuses to package a manifest with no contribution,
+so a tag pushed today stops in the first job with that stated by name — `scripts/check-release-readiness.js`
+says it rather than leaving it to be discovered as a bare tfx error three jobs later. The first
+release becomes possible when the first task lands. Two things follow, and both are why the table
+below reads the way it does: these controls are enforced on the **only** path that can produce a
+published `.vsix` — no other path exists, and the manual `tfx` invocation that used to be the
+de-facto one is not a path this repository sanctions — and none of them has yet been exercised
+end to end against a real artifact.
+
+Two prerequisites live outside this tree and are not satisfied by merging this file. The Entra
+service principal behind `AZDO_PUBLISH_CLIENT_ID` is shared with both siblings and needs a federated
+credential for this repository's subject before `azure/login` can succeed here. And the `marketplace`
+environment as provisioned permits self-review and admin bypass (#50), with no protection on `v*`
+tags (#51); both are repository settings, and both have to be settled before that environment is
+load-bearing rather than decorative.
+
+This table is machine-checked: `scripts/check-docs-claims.js` (CI job **Check Documented Claims**)
+reads it on every pull request and compares each row against `.github/workflows/`. The comparison
+runs in both directions. A row marked `enforced` that no workflow implements fails the build — that is
+the defect this table replaces. A row marked `planned` whose control has appeared in a workflow fails
+it too, which is the direction that moved these four rows: the publish path landing and the table
+staying still would have been the same drift pointing the other way.
 
 <!-- controls:begin -->
 
-| Control | Status | What `enforced` will mean |
+| Control | Status | What it means |
 | --- | --- | --- |
-| `marketplace-publish` | planned | A reviewed workflow publishes the `.vsix`, replacing today's de-facto path — an unreviewed `tfx` invocation on a maintainer's machine (#26). |
-| `publish-environment-approval` | planned | That workflow's publish job declares `environment: marketplace`, so the publish stops at the environment's protection rules. |
-| `vsix-signature` | planned | The release workflow signs the `.vsix` with keyless cosign and attaches a build-provenance attestation, both verifiable against the workflow's own OIDC identity. |
-| `sbom-attestation` | planned | The release workflow generates a CycloneDX SBOM and attests it to the artifact. `@cyclonedx/cyclonedx-npm` was removed from `package.json` in the meantime: a generator that was installed into every CI job and invoked by nothing made this row look implemented. |
+| `marketplace-publish` | enforced | `.github/workflows/release.yml` builds, packages and publishes the `.vsix` from a tagged commit on `main`. It replaces an unreviewed `tfx` invocation on a maintainer's machine (#26). |
+| `publish-environment-approval` | enforced | The `publish-marketplace` job declares `environment: marketplace`, so the publish stops at that environment's protection rules. The `guard` job re-verifies, fail-closed, that the environment still has a required reviewer and a deployment branch/ref policy before anything is built. |
+| `vsix-signature` | enforced | `sbom-and-sign` signs the `.vsix` with keyless cosign and attaches a build-provenance attestation. Both the draft release and the publish re-run `cosign verify-blob` against this repository's own workflow identity first, so the bytes published are provably the bytes signed. |
+| `sbom-attestation` | enforced | `sbom-and-sign` generates a CycloneDX SBOM of the extension's production closure and attests it to the `.vsix`. `@cyclonedx/cyclonedx-npm` is a devDependency again, and this time a workflow invokes it. With no tasks yet the SBOM has no third-party components, which is the truth about a `.vsix` that bundles none; `scripts/check-release-readiness.js` fails the release the day a task lands without an SBOM of its own, so that emptiness cannot outlive the empty tree. |
 
 <!-- controls:end -->
-
-Two caveats on `publish-environment-approval`, so that wiring it up is not mistaken for finishing it.
-The `marketplace` environment as provisioned permits self-review and admin bypass (#50), and no
-protection exists on `v*` tags (#51). Both are repository settings rather than code, and both have to
-be settled before that environment is load-bearing.
 
 ## What is enforced today
 
@@ -84,6 +92,16 @@ every pull request to `main`, and all of them are configured as required status 
 - **Build and Test** (ubuntu and windows), **Dependency audit**, **Scan Workflows (zizmor)**,
   **Analyze (javascript-typescript)** (CodeQL), and **replay**, the estate's structural signature
   gate.
+
+Three more gates run only at release time, in `release.yml`'s `guard` job, because they answer
+questions a pull request cannot: `scripts/check-release-readiness.js` (the release preconditions —
+something to publish, a release-please config that actually creates the tag `release.yml` triggers
+on, SBOM coverage that tracks the task tree, and a cosign identity naming *this* repository rather
+than the sibling it was ported from), plus the mutation self-tests
+`scripts/test-release-readiness.js` and `scripts/test-publish-marketplace.js`, which break what
+those guards protect and assert each one fails and names the cause. They belong in the
+already-required **Check Version Consistency** job so they gate a merge as well as a release; that is
+a one-line change to `.github/workflows/ci.yml` and is deliberately not made here.
 
 The known limits of those checks are recorded as open issues rather than restated here, because a
 restatement in this document is precisely what it has to stop drifting: see the issues labelled

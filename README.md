@@ -72,30 +72,45 @@ npm run check:composition # what the .vsix would contain, and whether the manife
                           # promises anything that is not in it
 npm run check:audit-scope # whether the required "Dependency audit" job inspects a
                           # non-empty set of packages
-npm run test:composition  # mutation self-test: re-creates each defect the
-npm run test:gates        # gates above exist to catch and asserts they fail by name
+npm run test:composition  # mutation self-tests: re-create each defect the gates
+npm run test:gates        # above exist to catch and assert they fail by name
+npm run check:release-readiness  # preconditions release.yml depends on
+npm run test:release-readiness   # mutation self-test for the gate above
+npm run test:publish             # the publish wrapper keeps the Entra token off
+                                 # argv and bounds its retries
 ```
 
 `check:versions`, `check:composition`, `test:composition` and `test:gates` all run in the required
 `Check Version Consistency` CI job; `check:audit-scope` runs in `Dependency audit`, ahead of the
-audit it checks the scope of. `Lint GitHub Actions` (actionlint) is a separate job and is **not yet**
-one of main's required contexts — it has to be added to branch protection by hand, like
-`Check Documented Claims`. `npm run build:release` runs `check:composition` before composing
+audit it checks the scope of. `Lint GitHub Actions` (actionlint) and `Check Documented Claims` are
+separate jobs and are both required contexts on `main`. The three `*release-readiness*`/`*publish*`
+commands run in `release.yml`'s `guard` job, because they answer questions about a release rather
+than about a commit; `check:release-readiness` fails today, by design, and says why.
+`npm run build:release` runs `check:composition` before composing
 `./build`, and `scripts/copy-build.js` then refuses to compose a package containing a symlink, a
 secret-shaped file, a path outside a known task directory, or anything the allowlist does not cover —
 and asserts, over its own finished output, that every path the packaged manifest promises is present.
 
 Commits follow Conventional Commits; releases are cut by release-please.
 
-> **Not yet implemented:** there is no `release.yml`, so nothing publishes to the Visual Studio
-> Marketplace today. The sibling extensions gate that behind a reviewed `marketplace` environment
-> with a deployment branch/tag policy, and this repo should adopt the same before its first release
-> (#26). Stated here as absent rather than described as if it existed — a README that claims a publish
-> path the repo does not have is the `docs-claims` defect class, which this extension inherits in
-> full.
+> **The publish path exists and has never run.** `.github/workflows/release.yml` takes a `v*` tag on
+> `main` through guard → CI → build → package → SBOM-and-sign → draft release → Marketplace publish →
+> undraft, gating the publish behind the `marketplace` GitHub Environment and authenticating with a
+> GitHub OIDC to Microsoft Entra federated credential rather than a stored token. It was ported from
+> the sibling extensions rather than written here; that file's header records where the two siblings
+> disagree and which side this repository followed, and why the ten-minute cap on the Entra token
+> decides the job order.
 >
-> `SECURITY.md` now carries the same statement in machine-checked form: its **Supply chain controls**
-> table lists each control as `enforced` or `planned`, and `scripts/check-docs-claims.js` fails the
-> build in both directions — a control claimed but absent, and a control implemented while the table
-> still calls it planned. That second direction is what stops these two documents drifting apart
-> again, which is how the claim survived here in the first place.
+> It cannot yet complete: `azure-devops-extension.json` declares `"contributions": []`, and
+> `tfx extension create` refuses to package a manifest with no contribution. A tag pushed today stops
+> in the first job saying exactly that (`scripts/check-release-readiness.js`), which is the point —
+> the path is reviewed before it carries anything, rather than after. Two prerequisites also live
+> outside this tree: a federated credential on the shared publishing service principal for this
+> repository's subject, and the `marketplace` environment's own self-review/admin-bypass and `v*` tag
+> protection settings (#50, #51).
+>
+> `SECURITY.md` carries the machine-checked form: its **Supply chain controls** table lists each
+> control as `enforced` or `planned`, and `scripts/check-docs-claims.js` fails the build in both
+> directions — a control claimed but absent, and a control implemented while the table still calls it
+> planned. That second direction is what moved all four rows in the same change that landed the
+> workflow, and what stops these two documents drifting apart again.

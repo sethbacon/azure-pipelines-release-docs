@@ -1,0 +1,34 @@
+# zizmor configuration — https://docs.zizmor.sh/configuration/
+#
+# Documented, intentional exceptions. Every other finding fails the
+# "Scan Workflows (zizmor)" job, which is a required status check on main.
+# This file exists only because release.yml landed; there was nothing to
+# exempt before it, and there is nothing exempted outside it.
+#
+# Ported from azure-pipelines-terraform's .github/zizmor.yml, which carries
+# the same two exceptions for the same two reasons. Following the terraform
+# side rather than the packer side deliberately: packer ignores both rules
+# for the WHOLE of release.yml, so a genuinely new instance introduced later
+# for an unrelated reason would be swallowed silently. These ignores are
+# scoped to the exact line:column zizmor reports today, so an edit that moves
+# those steps surfaces them for review again.
+#
+# Re-verify with:
+#   zizmor --no-config --format plain .github/workflows/release.yml
+rules:
+  cache-poisoning:
+    ignore:
+      # release.yml's four setup-node steps do not enable dependency caching
+      # (no `cache:` input), so there is no cached artifact to poison. zizmor
+      # flags setup-node defensively in any workflow that publishes artifacts,
+      # which this one does by definition.
+      - release.yml:262:9
+      - release.yml:289:9
+      - release.yml:325:9
+      - release.yml:454:9
+  superfluous-actions:
+    ignore:
+      # softprops/action-gh-release is used for its multi-file glob upload and
+      # its release-notes generation, and for returning the release id that
+      # undraft-release needs. `gh release create` is not equivalent here.
+      - release.yml:424:15
