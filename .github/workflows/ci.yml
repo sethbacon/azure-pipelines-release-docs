@@ -103,18 +103,21 @@ jobs:
         with:
           node-version: 24
       - run: npm ci --ignore-scripts
-      # Before `npm run deps`, deliberately. This is the only self-test in the
-      # repository that runs on BOTH matrix legs, because the property it proves
-      # is platform-specific: for-each-task.js spawns npm, `Tasks/` is empty, so
-      # that spawn has been called zero times on either leg and the
-      # windows-2025 context has been green over a code path it never executed
-      # (#45). It executes the real npm() against the real npm, so a resolution
-      # order that is wrong for a Windows runner fails on the pull request that
-      # writes it rather than on the day the first task lands.
+      # Before `npm run deps`, deliberately. It executes the real npm() against
+      # the real npm, so a resolution order that is wrong for a Windows runner
+      # fails on the pull request that writes it rather than in a release (#45).
       - run: npm run test:task-runner
       - run: npm run deps
       - run: npm run compile
       - run: npm run test:all
+      # Both task.json files declare a Node20_1 handler beside Node24, so an agent
+      # without Node 24 runs the shipped artefact under Node 20 — a runtime nothing
+      # here executed until this leg. azure-pipelines-terraform smoke-tested these
+      # same two tasks that way before they moved (its #654).
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20
+      - run: npm run smoke:all
 
   audit:
     name: Dependency audit
