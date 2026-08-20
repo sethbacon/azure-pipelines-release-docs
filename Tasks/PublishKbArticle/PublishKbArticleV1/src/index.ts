@@ -1,0 +1,413 @@
+import tasks = require('azure-pipelines-task-lib/task');
+import path = require('path');
+import { getOAuthToken, getAuthHeaders } from './auth';
+import {
+    getKnowledgeBases,
+    getArticle,
+    createKnowledgeArticle,
+    updateKnowledgeArticle,
+    changeWorkflowState,
+    findArticleBySourceKey,
+} from './servicenow-client';
+import { validateHtmlContent, readHtmlFile, sanitizeHtmlForPublish } from './html-validate';
+import { emitArticleOutput, findKbArticleJson, readFrontMatterKey, sanitizeForSingleLineEcho, sanitizeOutputVariableValue } from './manifest';
+import { DryRunPlan, PlannedAction, formatDryRunReport } from './dry-run';
+import { processArticleImages } from './attachments';
+import { updateArticleBody } from './servicenow-client';
+import { ServiceNowHttpError } from './servicenow-http';
+
+interface ResolvedAuth {
+    instance: string;
+    headers: Record<string, string>;
+}
+
+/**
+ * Resolve the ServiceNow instance and auth headers from a service connection
+ * and/or inline inputs (inline inputs override/supplement the connection),
+ * validate the instance name against URL injection, and obtain the OAuth or
+ * Basic auth headers.
+ */
+async function resolveAuth(): Promise<ResolvedAuth> {
+    // -----------------------------------------------------------------
+    // Resolve instance and auth from service connection or inline inputs
+    // -----------------------------------------------------------------
+    let instance = '';
+    let authType = '';
+    let clientId: string | undefined;
+    let clientSecret: string | undefined;
+    let username: string | undefined;
+    let password: string | undefined;
+
+    const serviceConnection = tasks.getInput('serviceConnection', false);
+    if (serviceConnection) {
+        const rawUrl = tasks.getEndpointUrl(serviceConnection, false) || '';
+        // Extract instance name from URL like https://myinstance.service-now.com
+        const urlMatch = rawUrl.match(/https?:\/\/([^.]+)\.service-now\.com/i);
+        instance = urlMatch ? urlMatch[1] : rawUrl;
+
+        const scheme = (tasks.getEndpointAuthorizationScheme(serviceConnection, false) || '').toLowerCase();
+        if (scheme === 'usernamepassword' || scheme === 'basic') {
+            authType = 'basic';
+            username = tasks.getEndpointAuthorizationParameter(serviceConnection, 'username', false) || undefined;
+            password = tasks.getEndpointAuthorizationParameter(serviceConnection, 'password', false) || undefined;
+            if (password) tasks.setSecret(password);
+        } else {
+            authType = 'oauth';
+            clientId = tasks.getEndpointAuthorizationParameter(serviceConnection, 'clientId', false) || undefined;
+            clientSecret = tasks.getEndpointAuthorizationParameter(serviceConnection, 'clientSecret', false) || undefined;
+            if (clientSecret) tasks.setSecret(clientSecret);
+        }
+    }
+
+    // Inline inputs override / supplement service connection
+    instance = tasks.getInput('instance', false) || instance;
+    authType = tasks.getInput('authType', false) || authType;
+    clientId = tasks.getInput('clientId', false) || clientId;
+    clientSecret = tasks.getInput('clientSecret', false) || clientSecret;
+    username = tasks.getInput('username', false) || username;
+    password = tasks.getInput('password', false) || password;
+    // Mask clientSecret/password at the point of read (#771): getOAuthToken()/
+    // basicAuthHeader() below also setSecret them, but only after authType
+    // branching (and, for basic, header construction) -- masking here closes
+    // the window between read and that deferred call where an early
+    // throw/log could otherwise leak the plain value unmasked.
+    if (clientSecret) tasks.setSecret(clientSecret);
+    if (password) tasks.setSecret(password);
+
+    if (!instance) {
+        throw new Error(tasks.loc('InstanceRequired'));
+    }
+    // Guard against URL injection: instance is interpolated into
+    // https://<instance>.service-now.com, which carries the OAuth secret.
+    if (!/^[a-z0-9-]+$/i.test(instance)) {
+        throw new Error(tasks.loc('InvalidInstance', instance));
+    }
+    if (!authType) {
+        throw new Error(tasks.loc('AuthTypeRequired'));
+    }
+
+    // -----------------------------------------------------------------
+    // Obtain auth headers
+    // -----------------------------------------------------------------
+    let headers: Record<string, string>;
+    if (authType === 'oauth') {
+        if (!clientId || !clientSecret) {
+            throw new Error(tasks.loc('OAuthClientCredentialsRequired'));
+        }
+        const token = await getOAuthToken(instance, clientId, clientSecret);
+        headers = getAuthHeaders('oauth', { accessToken: token });
+    } else {
+        // Validation (and the credential setSecret()-masking) is owned entirely
+        // by getAuthHeaders()/basicAuthHeader() -- a separate pre-check here was
+        // dead code (this is that function's only call site for 'basic') using
+        // a second, drifted loc key for the identical condition (#683).
+        headers = getAuthHeaders('basic', { username, password });
+    }
+
+    return { instance, headers };
+}
+
+interface ActionPlan {
+    kbId?: string;
+    title?: string;
+    htmlFile?: string;
+    author?: string;
+    category?: string;
+    subcategory?: string;
+    workflowState: string;
+    sourceKey?: string;
+    force: boolean;
+    articleContent?: string;
+    articleId?: string;
+    plannedAction: PlannedAction;
+    workflowOnly: boolean;
+}
+
+/**
+ * Read the article-related inputs, read/validate the HTML file (if any),
+ * resolve the source key (front-matter override), and resolve which article
+ * this run targets — explicit `articleId` input, then the stable source-key
+ * sentinel, then the legacy KB*.json file; otherwise create — plus whether the
+ * resulting action is a create, a full update, or a workflow-state-only change.
+ *
+ * The source-key lookup FALLS THROUGH to the JSON lookup on a miss (rather
+ * than short-circuiting to create). This keeps sourceKey backward-compatible
+ * with modules still tracked by a KB*.json file: an existing article created
+ * before the sentinel existed is found via the JSON file and updated in place
+ * (self-healing its wiki-source sentinel) instead of a duplicate being created.
+ */
+async function planAction(instance: string, headers: Record<string, string>, kbId: string | undefined): Promise<ActionPlan> {
+    const articleIdInput = tasks.getInput('articleId', false) || undefined;
+    const title = tasks.getInput('title', false) || undefined;
+    const htmlFile = tasks.getInput('htmlFile', false) || undefined;
+    const author = tasks.getInput('author', false) || undefined;
+    const category = tasks.getInput('category', false) || undefined;
+    const subcategory = tasks.getInput('subcategory', false) || undefined;
+    const workflowState = tasks.getInput('workflowState', false) || 'draft';
+    let sourceKey = tasks.getInput('sourceKey', false) || undefined;
+    const readKeyFrom = tasks.getInput('readKeyFrom', false) || undefined;
+    const force = tasks.getBoolInput('force', false);
+    const skipJsonLookup = tasks.getBoolInput('skipJsonLookup', false);
+
+    let articleContent: string | undefined;
+    if (htmlFile) {
+        articleContent = readHtmlFile(htmlFile);
+        validateHtmlContent(articleContent, force);
+        // #820: re-serialize through the shared allowlist sanitizer before this
+        // content is published to ServiceNow's `text` field (a stored-XSS sink).
+        // validateHtmlContent above remains a fail-closed pre-check (authoring UX);
+        // this is the belt-and-suspenders layer that guarantees the published bytes
+        // are only ever what the allowlist in html-sanitizer.ts permits.
+        articleContent = sanitizeHtmlForPublish(articleContent);
+    }
+
+    if (readKeyFrom) {
+        sourceKey = readFrontMatterKey(readKeyFrom);
+        console.log(tasks.loc('SourceKeyFromFrontMatter', readKeyFrom, sourceKey));
+    }
+
+    let articleId: string | undefined = articleIdInput;
+
+    if (!articleId && sourceKey) {
+        const found = await findArticleBySourceKey(instance, headers, sourceKey, kbId);
+        articleId = found || undefined;
+    }
+
+    if (!articleId && !skipJsonLookup) {
+        console.log(tasks.loc('LookingForKbJson'));
+        const jsonData = findKbArticleJson();
+        if (jsonData && jsonData['article_id']) {
+            articleId = jsonData['article_id'] as string;
+            console.log(tasks.loc('UsingArticleIdFromJson', articleId));
+        }
+    }
+
+    // Determine the action that would be taken (shared by dry-run and execute).
+    const workflowOnly = Boolean(articleId) && Boolean(workflowState) &&
+        !title && !articleContent && !category && !author;
+    const plannedAction: PlannedAction = !articleId
+        ? 'create'
+        : workflowOnly ? 'workflow-only' : 'update';
+
+    return {
+        kbId, title, htmlFile, author, category, subcategory, workflowState,
+        sourceKey, force, articleContent, articleId, plannedAction, workflowOnly,
+    };
+}
+
+/**
+ * Perform the actual ServiceNow write for a resolved plan: change the workflow
+ * state only, update the article's full content, or (when no article was
+ * resolved) validate the create-required fields and create a new article.
+ */
+async function executeCreateOrUpdate(
+    instance: string,
+    headers: Record<string, string>,
+    plan: ActionPlan,
+): Promise<Record<string, unknown>> {
+    const { kbId, articleId, workflowOnly, title, articleContent, author, category, subcategory, workflowState, sourceKey } = plan;
+    let article: Record<string, unknown>;
+
+    if (articleId) {
+        console.log(tasks.loc('UpdatingArticle', articleId));
+
+        if (workflowOnly) {
+            console.log(tasks.loc('ChangingWorkflowState', workflowState));
+            article = await changeWorkflowState(instance, headers, articleId, workflowState) as unknown as Record<string, unknown>;
+        } else {
+            article = await updateKnowledgeArticle(
+                instance, headers, articleId,
+                title, articleContent, author,
+                category, subcategory, workflowState, sourceKey,
+            ) as unknown as Record<string, unknown>;
+        }
+        console.log(tasks.loc('ArticleUpdated'));
+    } else {
+        // Create path — validate required fields
+        if (!kbId) {
+            throw new Error(tasks.loc('KbIdRequiredForCreate'));
+        }
+        if (!title) {
+            throw new Error(tasks.loc('TitleRequiredForCreate'));
+        }
+        if (!articleContent) {
+            throw new Error(tasks.loc('ContentRequiredForCreate'));
+        }
+        if (!author) {
+            throw new Error(tasks.loc('AuthorRequiredForCreate'));
+        }
+
+        console.log(tasks.loc('CreatingArticle', title));
+        article = await createKnowledgeArticle(
+            instance, headers, kbId, title, articleContent, author,
+            category, subcategory, workflowState, sourceKey,
+        ) as unknown as Record<string, unknown>;
+        console.log(tasks.loc('ArticleCreated'));
+    }
+
+    return article;
+}
+
+async function run() {
+    tasks.setResourcePath(path.join(__dirname, '..', 'task.json'));
+    try {
+        const { instance, headers } = await resolveAuth();
+
+        // -----------------------------------------------------------------
+        // List KB mode
+        // -----------------------------------------------------------------
+        const kbId = tasks.getInput('kbId', false) || undefined;
+        if (kbId === 'list') {
+            const kbs = await getKnowledgeBases(instance, headers);
+            console.log(tasks.loc('AvailableKnowledgeBases'));
+            for (const kb of kbs as Array<Record<string, unknown>>) {
+                console.log(tasks.loc('KnowledgeBaseEntry', kb['title'], kb['sys_id']));
+            }
+            tasks.setResult(tasks.TaskResult.Succeeded, tasks.loc('KbListingComplete'));
+            return;
+        }
+
+        const emitManifest = tasks.getInput('emitManifest', false) || undefined;
+        const dryRun = tasks.getBoolInput('dryRun', false);
+        const uploadImages = tasks.getBoolInput('uploadImages', false);
+        const imageBaseDir = tasks.getInput('imageBaseDir', false) || undefined;
+
+        const plan = await planAction(instance, headers, kbId);
+        const { title, htmlFile, author, category, subcategory, workflowState, sourceKey, force, articleContent, articleId, plannedAction } = plan;
+
+        // -----------------------------------------------------------------
+        // Dry-run: report the plan and exit without any write.
+        // Read-only lookups above (source-key resolution) have already run; the
+        // only additional read here is fetching the existing article's current
+        // state. No POST/PATCH, category auto-create, or manifest write occurs.
+        // -----------------------------------------------------------------
+        if (dryRun) {
+            let currentWorkflowState: string | undefined;
+            if (articleId) {
+                try {
+                    const existing = await getArticle(instance, headers, articleId);
+                    currentWorkflowState = existing.workflow_state;
+                } catch (error) {
+                    // A genuine 404 (the article truly doesn't exist under this ID) is
+                    // non-fatal in dry-run: report what we can without the current
+                    // state. Any OTHER failure (401/403 auth, 5xx, transport) is a real
+                    // connectivity/misconfiguration problem masquerading as "unknown" --
+                    // surface it loudly (#727) instead of silently normalizing every
+                    // failure the same way, since dryRun is explicitly documented as a
+                    // way to catch misconfiguration early.
+                    currentWorkflowState = undefined;
+                    const is404 = error instanceof ServiceNowHttpError && error.status === 404;
+                    if (!is404) {
+                        const message = error instanceof Error ? error.message : String(error);
+                        tasks.warning(tasks.loc('DryRunGetArticleFailed', message));
+                    }
+                }
+            } else if (plannedAction === 'create') {
+                // Surface the same required-field problems a real create would hit,
+                // so a dry-run on a PR build catches misconfiguration early.
+                const missing: string[] = [];
+                if (!kbId) missing.push('kbId');
+                if (!title) missing.push('title');
+                if (!articleContent) missing.push('htmlFile (content)');
+                if (!author) missing.push('author');
+                if (missing.length > 0) {
+                    throw new Error(tasks.loc('DryRunMissingFields', missing.join(', ')));
+                }
+            }
+
+            const dryRunPlan: DryRunPlan = {
+                action: plannedAction,
+                instance,
+                kbId,
+                articleId,
+                currentWorkflowState,
+                title,
+                author,
+                category,
+                subcategory,
+                workflowState,
+                sourceKey,
+                contentBytes: articleContent ? Buffer.byteLength(articleContent, 'utf8') : undefined,
+                sourceKeyMatched: sourceKey ? Boolean(articleId) : undefined,
+            };
+
+            console.log(formatDryRunReport(dryRunPlan));
+            tasks.setResult(tasks.TaskResult.Succeeded, tasks.loc('DryRunComplete'));
+            return;
+        }
+
+        // -----------------------------------------------------------------
+        // Execute: update or create
+        // -----------------------------------------------------------------
+        const article = await executeCreateOrUpdate(instance, headers, plan);
+
+        // Neutralize embedded newlines in these ServiceNow-response-derived
+        // values before echoing -- without it, an embedded newline could smuggle
+        // in a fake ##vso[...]/##[...] logging command (#693).
+        console.log(tasks.loc('ArticleNumberLine', sanitizeForSingleLineEcho(article['number'] as string)));
+        console.log(tasks.loc('ArticleIdLine', sanitizeForSingleLineEcho(article['sys_id'] as string)));
+        console.log(tasks.loc('WorkflowStateLine', sanitizeForSingleLineEcho(article['workflow_state'] as string)));
+
+        // -----------------------------------------------------------------
+        // Emit manifest line + output variables BEFORE the image-upload phase, so a
+        // failure uploading images cannot orphan the just-created article: a retry
+        // can find it (via the manifest / kbArticleId) and update it in place
+        // instead of creating a duplicate draft.
+        // -----------------------------------------------------------------
+        emitArticleOutput(article, sourceKey, emitManifest, kbId);
+
+        // The console echoes above were newline-neutralized (#693) but these three
+        // sibling output variables -- the SAME ServiceNow-response fields -- went
+        // to setVariable raw. Route them through the output-variable guard so a
+        // response field carrying CR/LF (or a non-string value the `as string`
+        // cast silently accepted) can never forge a `##vso[...]` logging command
+        // or land unvalidated in a downstream `$(kbArticleId)` expansion.
+        for (const [variableName, field] of [
+            ['kbArticleId', 'sys_id'],
+            ['kbArticleNumber', 'number'],
+            ['kbWorkflowState', 'workflow_state'],
+        ] as const) {
+            const safeValue = sanitizeOutputVariableValue(article[field]);
+            if (safeValue === null) {
+                tasks.warning(`ServiceNow response field '${field}' failed output-variable validation (length/printable-ASCII); skipping the ${variableName} output variable.`);
+                continue;
+            }
+            tasks.setVariable(variableName, safeValue, false, true);
+        }
+
+        // -----------------------------------------------------------------
+        // Phase 2: upload referenced images as attachments and rewrite the body.
+        // Runs only when there is body content and image upload is enabled. The
+        // article must already exist (we need its sys_id), which it does here.
+        // -----------------------------------------------------------------
+        if (uploadImages && articleContent) {
+            const sysId = article['sys_id'] as string;
+            // Resolve relative <img> paths against imageBaseDir, or the HTML
+            // file's own directory when no base dir is given.
+            const baseDir = imageBaseDir
+                ? path.resolve(imageBaseDir)
+                : htmlFile ? path.dirname(path.resolve(htmlFile)) : process.cwd();
+
+            const result = await processArticleImages(
+                instance, headers, sysId, articleContent, baseDir, /* failOnMissing */ !force,
+            );
+
+            if (result.uploaded > 0) {
+                await updateArticleBody(instance, headers, sysId, result.html);
+                console.log(tasks.loc('ImagesRewritten', result.uploaded));
+            }
+            if (result.missing.length > 0) {
+                console.log(tasks.loc('ImagesMissingSummary', result.missing.length));
+            }
+        }
+
+        tasks.setResult(tasks.TaskResult.Succeeded, '');
+    } catch (error) {
+        tasks.setResult(
+            tasks.TaskResult.Failed,
+            error instanceof Error ? error.message : String(error),
+        );
+    }
+}
+
+void run();

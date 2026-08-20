@@ -1,0 +1,129 @@
+{
+    "$schema": "https://raw.githubusercontent.com/Microsoft/azure-pipelines-task-lib/master/tasks.schema.json",
+    "id": "610b6fa3-534e-4683-868d-18d8d8d59595",
+    "name": "PipelineMarkdown2Html",
+    "friendlyName": "Markdown to HTML Converter",
+    "description": "Convert Markdown files to HTML for publishing as ServiceNow knowledge base articles",
+    "author": "sethbacon",
+    "helpMarkDown": "[Learn more about this task](https://github.com/sethbacon/azure-pipelines-release-docs)",
+    "category": "Utility",
+    "visibility": [
+        "Build",
+        "Release"
+    ],
+    "demands": [],
+    "version": {
+        "Major": 1,
+        "Minor": 11,
+        "Patch": 0
+    },
+    "minimumAgentVersion": "4.265.1",
+    "instanceNameFormat": "Markdown to HTML",
+    "inputs": [
+        {
+            "name": "mode",
+            "type": "pickList",
+            "label": "Conversion mode",
+            "required": true,
+            "helpMarkDown": "Choose how to supply input files.",
+            "options": {
+                "filelist": "File list",
+                "frontMatter": "Front-matter driven"
+            }
+        },
+        {
+            "name": "primaryFile",
+            "type": "string",
+            "label": "Primary Markdown file",
+            "required": true,
+            "visibleRule": "mode = frontMatter",
+            "helpMarkDown": "Path to the primary Markdown file whose YAML front-matter drives multi-file composition."
+        },
+        {
+            "name": "inputFiles",
+            "type": "multiLine",
+            "label": "Input files (one path per line)",
+            "required": true,
+            "visibleRule": "mode = filelist",
+            "helpMarkDown": "Paths to Markdown files to convert and combine. Separate paths with a newline or a comma."
+        },
+        {
+            "name": "outputFile",
+            "type": "string",
+            "label": "Output HTML file",
+            "required": true,
+            "helpMarkDown": "Path to the output HTML file."
+        },
+        {
+            "name": "title",
+            "type": "string",
+            "label": "Document title",
+            "required": false,
+            "defaultValue": "Combined Markdown Files",
+            "helpMarkDown": "Title for the generated HTML document."
+        },
+        {
+            "name": "sections",
+            "type": "boolean",
+            "label": "Add file sections",
+            "required": false,
+            "defaultValue": "false",
+            "helpMarkDown": "Add file names as section headers before each file's content."
+        },
+        {
+            "name": "dividers",
+            "type": "boolean",
+            "label": "Add dividers between files",
+            "required": false,
+            "defaultValue": "false",
+            "helpMarkDown": "Add horizontal rules between files."
+        },
+        {
+            "name": "debug",
+            "type": "boolean",
+            "label": "Debug output",
+            "required": false,
+            "defaultValue": "false",
+            "helpMarkDown": "Print additional debug information during conversion."
+        }
+    ],
+    "outputVariables": [
+        {
+            "name": "htmlFilePath",
+            "description": "Absolute path to the generated HTML file."
+        }
+    ],
+    "restrictions": {
+        "commands": {
+            "mode": "restricted"
+        },
+        "settableVariables": {
+            "allowed": [
+                "htmlFilePath"
+            ]
+        }
+    },
+    "execution": {
+        "Node24": {
+            "target": "src/index.js"
+        },
+        "Node20_1": {
+            "target": "src/index.js"
+        }
+    },
+    "messages": {
+        "IncludeConversionFailed": "Failed to convert include '%s'",
+        "FrontMatterConversionComplete": "Front-matter-driven conversion complete: '%s'",
+        "TitleResolved": "Title: '%s'",
+        "FileConversionFailed": "Failed to convert '%s'",
+        "FileConverted": "Converted: %s",
+        "MaxIncludeDepthExceeded": "Maximum include depth (%s) exceeded at '%s'.",
+        "IncludeOutsidePrimaryDir": "Include '%s' resolves outside the primary file's directory ('%s'): '%s'",
+        "IncludeFileNotFound": "Include file not found: '%s' (resolved to '%s')",
+        "IncludeCycleDetected": "Cycle detected: '%s' is already in the include chain.",
+        "IncludeHasKbKey": "Include file '%s' has a 'kb-key' front-matter field. Include files must not be primaries.",
+        "NoInputFilesProvided": "No input files provided.",
+        "HtmlWrittenTo": "HTML written to '%s'",
+        "FrontMatterParseFailed": "Front-matter in '%s' could not be parsed as a YAML mapping and was ignored (defaults used): %s"
+    }
+}

@@ -12,7 +12,7 @@
   "scopes": [
     "vso.build"
   ],
-  "description": "Scaffold — no tasks are published yet. Planned: changelog generation, Markdown to HTML conversion, and ServiceNow knowledge base publishing for Azure Pipelines.",
+  "description": "Markdown to HTML conversion and ServiceNow knowledge base publishing for Azure Pipelines. Changelog generation is planned.",
   "public": false,
   "categories": [
     "Azure Pipelines"
@@ -41,10 +41,38 @@
       "path": "LICENSE"
     }
   },
-  "files": [],
+  "files": [
+    {
+      "path": "Tasks/Markdown2Html"
+    },
+    {
+      "path": "Tasks/PublishKbArticle"
+    }
+  ],
   "repository": {
     "type": "git",
     "uri": "https://github.com/sethbacon/azure-pipelines-release-docs"
   },
-  "contributions": []
+  "contributions": [
+    {
+      "id": "custom-markdown2html-task",
+      "type": "ms.vss-distributed-task.task",
+      "targets": [
+        "ms.vss-distributed-task.tasks"
+      ],
+      "properties": {
+        "name": "Tasks/Markdown2Html/Markdown2HtmlV1"
+      }
+    },
+    {
+      "id": "custom-publish-kb-article-task",
+      "type": "ms.vss-distributed-task.task",
+      "targets": [
+        "ms.vss-distributed-task.tasks"
+      ],
+      "properties": {
+        "name": "Tasks/PublishKbArticle/PublishKbArticleV1"
+      }
+    }
+  ]
 }

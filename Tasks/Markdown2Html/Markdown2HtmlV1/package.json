@@ -1,0 +1,51 @@
+{
+  "name": "markdown2html",
+  "version": "1.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "compile": "tsc -b tsconfig.json",
+    "compile:tests": "tsc -p tsconfig.tests.json",
+    "compile:all": "npm run compile && npm run compile:tests",
+    "test": "npm run compile:all && mocha --timeout 10000 --forbid-pending --require ts-node/register Tests/L0.ts",
+    "test:coverage": "npm run compile:all && nyc mocha --timeout 10000 --forbid-pending --require ts-node/register Tests/L0.ts",
+    "posttest:coverage": "node ../../../scripts/check-per-file-coverage.js",
+    "lint": "npx eslint src/ Tests/"
+  },
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=24"
+  },
+  "minimumAgentVersion": "3.232.1",
+  "dependencies": {
+    "azure-pipelines-task-lib": "^5.2.10",
+    "cheerio": "^1.2.0",
+    "highlight.js": "^11.11.1",
+    "js-yaml": "^4.2.0",
+    "markdown-it": "^14.2.0",
+    "sanitize-html": "^2.17.6"
+  },
+  "overrides": {
+    "diff": "^8.0.3",
+    "serialize-javascript": "^7.0.0",
+    "js-yaml": "^4.2.0",
+    "adm-zip": "^0.6.0",
+    "linkify-it": "^5.0.2",
+    "brace-expansion": "5.0.9",
+    "postcss": "8.5.23"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/markdown-it": "^14.1.2",
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^24",
+    "@types/sanitize-html": "^2.16.1",
+    "eslint": "^9.0.0",
+    "mocha": "^11.2.0",
+    "nyc": "^18.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.0.0"
+  }
+}
