@@ -16,6 +16,18 @@
 # Re-verify with:
 #   zizmor --no-config --format plain .github/workflows/release.yml
 rules:
+  # Full-SHA pinning was a convention with nothing enforcing it: the repository
+  # setting `sha_pinning_required` is false, and zizmor's DEFAULT unpinned-uses
+  # policy accepts a tag (`ref-pin`), so `actions/checkout@v7` would have passed
+  # the required "Scan Workflows (zizmor)" context (#30). `hash-pin` for every
+  # owner makes zizmor itself reject it. scripts/check-workflow-hardening.js
+  # asserts the same property from the other side and is mutation-proved; two
+  # gates on one property is deliberate, because this one can only be trusted
+  # as far as an upstream default.
+  unpinned-uses:
+    config:
+      policies:
+        "*": hash-pin
   cache-poisoning:
     ignore:
       # release.yml's four setup-node steps do not enable dependency caching

@@ -1,0 +1,280 @@
+#!/usr/bin/env node
+'use strict'
+
+// Mutation self-test for scripts/check-workflow-hardening.js.
+//
+// Same contract as scripts/test-gates.js and scripts/test-package-composition.js,
+// and the only one worth anything: a gate is unproven until you have broken the
+// thing it protects and watched it fail BY NAME. Every case builds a clean
+// fixture, proves the gate accepts it, reintroduces exactly one of the four
+// findings this gate exists to make durable, and asserts a non-zero exit AND
+// the expected wording. Exit code alone is not evidence — a gate failing for an
+// unrelated reason looks identical to one working.
+//
+// Cases, mapped to the findings they re-create:
+//   pin-tag / pin-branch     a mutable ref replacing a SHA               (#30)
+//   pin-unlabelled           a SHA nobody can review or update           (#30)
+//   install-workflow         `npm ci` in a workflow losing the flag      (#21)
+//   install-per-task         for-each-task.js losing it, as it had       (#21)
+//   no-timeout               a job that can hold a runner for six hours  (#22)
+//   no-harden-runner         the one job that skipped it                 (#22)
+//   audit-unexplained        egress downgraded with no stated reason     (#23)
+//   thin-reason              an exception marker with no real reason     (#23)
+//   stale-exception          a reason outliving the audit it explained   (#23)
+//   block-no-allowlist       `block` that names no endpoints             (#23)
+//   reusable-call-exempt     a workflow_call job needs no timeout        (pass)
+//   empty-workflows / empty-jobs   the vacuity contract, both ways
+//
+// Nothing is written under this repository's own .github/, which the gate reads
+// for real in the "Lint GitHub Actions" job.
+
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
+const { spawnSync } = require('node:child_process')
+
+const GATE = path.join(__dirname, 'check-workflow-hardening.js')
+const workRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'release-docs-hardening-'))
+
+const SHA = '3d3c42e5aac5ba805825da76410c181273ba90b1'
+const HR_SHA = '05e31511f85b41b11d1cf0ef85d0992719546e2c'
+
+const ALPHA = `---
+name: Alpha
+
+"on":
+  pull_request:
+
+jobs:
+  credentialed:
+    name: Holds a stored key
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: step-security/harden-runner@${HR_SHA} # v2.21.0
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+      - uses: actions/checkout@${SHA} # v7.0.1
+      - run: npm ci --ignore-scripts
+
+  installs:
+    name: Resolves a dependency tree
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # hardening-exception: egress-audit — this job resolves an npm tree, whose
+      # destinations belong to the registry rather than to this file.
+      - uses: step-security/harden-runner@${HR_SHA} # v2.21.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@${SHA} # v7.0.1
+      - run: npm install --ignore-scripts
+`
+
+const BETA = `---
+name: Beta
+
+"on":
+  push:
+    branches: [main]
+
+jobs:
+  called:
+    uses: ./.github/workflows/alpha.yml
+
+  plain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # hardening-exception: egress-audit — nothing here holds a credential and
+      # its egress is the runner's own toolchain fetches.
+      - uses: step-security/harden-runner@${HR_SHA} # v2.21.0
+        with:
+          egress-policy: audit
+      - run: echo hello
+`
+
+const FOR_EACH_TASK = `#!/usr/bin/env node
+'use strict'
+
+const ACTIONS = {
+  ci: (dir) => npm(['--prefix', dir, 'ci', '--ignore-scripts', '--no-update-notifier']),
+  audit: (dir) => npm(['audit', '--audit-level=high']),
+}
+
+function npm(args) {}
+`
+
+function makeCleanTree(name) {
+  const dir = path.join(workRoot, name)
+  fs.mkdirSync(path.join(dir, '.github', 'workflows'), { recursive: true })
+  fs.mkdirSync(path.join(dir, 'scripts'), { recursive: true })
+  fs.writeFileSync(path.join(dir, '.github', 'workflows', 'alpha.yml'), ALPHA)
+  fs.writeFileSync(path.join(dir, '.github', 'workflows', 'beta.yml'), BETA)
+  fs.writeFileSync(path.join(dir, 'scripts', 'for-each-task.js'), FOR_EACH_TASK)
+  return dir
+}
+
+const editWorkflow = (dir, file, fn) => {
+  const full = path.join(dir, '.github', 'workflows', file)
+  fs.writeFileSync(full, fn(fs.readFileSync(full, 'utf8')))
+}
+
+function run(dir) {
+  const result = spawnSync(process.execPath, [GATE, dir], { encoding: 'utf8' })
+  return { status: result.status, output: `${result.stdout || ''}${result.stderr || ''}` }
+}
+
+let failures = 0
+const report = (ok, message) => {
+  if (ok) console.log(`  OK   ${message}`)
+  else {
+    console.error(`  FAIL ${message}`)
+    failures += 1
+  }
+}
+
+function expectRejection(label, mutate, expected) {
+  const dir = makeCleanTree(`case-${label}`)
+  mutate(dir)
+  const { status, output } = run(dir)
+  if (status === 0) {
+    report(false, `${label}: the gate exited 0 on the mutated tree\n${output}`)
+    return
+  }
+  const wanted = Array.isArray(expected) ? expected : [expected]
+  const missing = wanted.filter((w) => !output.includes(w))
+  if (missing.length > 0) {
+    report(false, `${label}: failed but never mentioned ${missing.map((m) => JSON.stringify(m)).join(', ')}\n${output}`)
+    return
+  }
+  report(true, `${label}: exits ${status} naming ${wanted.map((w) => JSON.stringify(w)).join(' + ')}`)
+}
+
+function expectPass(label, mutate, mustSay = []) {
+  const dir = makeCleanTree(`pass-${label}`)
+  if (mutate) mutate(dir)
+  const { status, output } = run(dir)
+  if (status !== 0) {
+    report(false, `${label}: exited ${status} on a tree it should accept\n${output}`)
+    return
+  }
+  const missing = mustSay.filter((w) => !output.includes(w))
+  if (missing.length > 0) {
+    report(false, `${label}: passed but never said ${missing.map((m) => JSON.stringify(m)).join(', ')}\n${output}`)
+    return
+  }
+  report(true, `${label}: exits 0${mustSay.length ? ` saying ${mustSay.map((w) => JSON.stringify(w)).join(' + ')}` : ''}`)
+}
+
+try {
+  console.log('the clean fixture:')
+  // The counts are asserted, not just the exit code: a gate that enumerated
+  // nothing exits 0 exactly like a gate that enumerated everything (#39).
+  expectPass('clean', null, ['4 job(s) over 2 workflow(s)', '6 `uses:` ref(s)', '3 npm install invocation(s)', '2 recorded egress exception(s)'])
+  // The reusable-workflow call job carries no timeout and no steps, and must
+  // not be reported for either — `timeout-minutes` is not valid there.
+  expectPass('reusable-call-exempt', null, ['4 job(s)'])
+
+  console.log('\nmutations — full-SHA pinning (#30):')
+  expectRejection('pin-tag', (dir) => editWorkflow(dir, 'alpha.yml', (y) => y.replace(`actions/checkout@${SHA}`, 'actions/checkout@v7')), [
+    'is not pinned to a full 40-hex commit SHA',
+    'actions/checkout@v7',
+  ])
+  expectRejection('pin-branch', (dir) => editWorkflow(dir, 'beta.yml', (y) => y.replace(`harden-runner@${HR_SHA}`, 'harden-runner@main')), [
+    'is not pinned to a full 40-hex commit SHA',
+  ])
+  expectRejection('pin-unlabelled', (dir) => editWorkflow(dir, 'alpha.yml', (y) => y.replace(`actions/checkout@${SHA} # v7.0.1`, `actions/checkout@${SHA}`)), [
+    'pinned but unlabelled',
+  ])
+
+  console.log('\nmutations — install hardening (#21):')
+  expectRejection('install-workflow', (dir) => editWorkflow(dir, 'alpha.yml', (y) => y.replace('npm ci --ignore-scripts', 'npm ci')), [
+    'runs without --ignore-scripts',
+  ])
+  expectRejection(
+    'install-per-task',
+    (dir) => {
+      const file = path.join(dir, 'scripts', 'for-each-task.js')
+      fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace("'--ignore-scripts', ", ''))
+    },
+    ['ACTIONS.ci runs the per-task `npm ci` without --ignore-scripts'],
+  )
+  expectRejection(
+    'install-per-task-absent',
+    (dir) => fs.rmSync(path.join(dir, 'scripts', 'for-each-task.js')),
+    ['the per-task install this gate exists to check is absent'],
+  )
+
+  console.log('\nmutations — timeouts and harden-runner coverage (#22):')
+  expectRejection('no-timeout', (dir) => editWorkflow(dir, 'alpha.yml', (y) => y.replace('    timeout-minutes: 15\n', '')), [
+    'declares no `timeout-minutes`',
+    'credentialed',
+  ])
+  expectRejection(
+    'no-harden-runner',
+    (dir) =>
+      editWorkflow(dir, 'alpha.yml', (y) =>
+        y.replace(`      - uses: step-security/harden-runner@${HR_SHA} # v2.21.0\n        with:\n          egress-policy: block\n`, ''),
+      ),
+    ['does not begin with step-security/harden-runner'],
+  )
+
+  console.log('\nmutations — egress policy, both directions (#23):')
+  expectRejection(
+    'audit-unexplained',
+    (dir) =>
+      editWorkflow(dir, 'alpha.yml', (y) =>
+        y.replace('          egress-policy: block\n          allowed-endpoints: >\n            api.github.com:443\n            github.com:443\n', '          egress-policy: audit\n'),
+      ),
+    ['with no recorded reason'],
+  )
+  expectRejection(
+    'thin-reason',
+    (dir) => editWorkflow(dir, 'beta.yml', (y) => y.replace(/# hardening-exception: egress-audit — nothing here holds a credential and\n      # its egress is the runner's own toolchain fetches\./, '# hardening-exception: egress-audit — meh')),
+    ['no usable reason'],
+  )
+  // The direction that matters: an exception that survives the flip it
+  // explained is how "audit everywhere" became the resting state.
+  expectRejection(
+    'stale-exception',
+    (dir) =>
+      editWorkflow(dir, 'alpha.yml', (y) =>
+        y.replace(
+          `      - uses: step-security/harden-runner@${HR_SHA} # v2.21.0\n        with:\n          egress-policy: block`,
+          `      # hardening-exception: egress-audit — a reason left behind after the job was flipped to block.\n      - uses: step-security/harden-runner@${HR_SHA} # v2.21.0\n        with:\n          egress-policy: block`,
+        ),
+      ),
+    ['still carries a `hardening-exception: egress-audit` comment'],
+  )
+  expectRejection(
+    'block-no-allowlist',
+    (dir) => editWorkflow(dir, 'alpha.yml', (y) => y.replace('          allowed-endpoints: >\n            api.github.com:443\n            github.com:443\n', '')),
+    ['no `allowed-endpoints:`'],
+  )
+  expectRejection('unknown-policy', (dir) => editWorkflow(dir, 'beta.yml', (y) => y.replace('egress-policy: audit', 'egress-policy: relaxed')), [
+    'unrecognised `egress-policy: relaxed`',
+  ])
+
+  console.log('\nmutations — the vacuity contract:')
+  expectRejection('empty-workflows', (dir) => fs.rmSync(path.join(dir, '.github', 'workflows'), { recursive: true }), ['no workflow files found'])
+  expectRejection(
+    'empty-jobs',
+    (dir) => {
+      fs.writeFileSync(path.join(dir, '.github', 'workflows', 'alpha.yml'), '---\nname: Alpha\n"on":\n  push:\n')
+      fs.writeFileSync(path.join(dir, '.github', 'workflows', 'beta.yml'), '---\nname: Beta\n"on":\n  push:\n')
+    },
+    ['no jobs parsed'],
+  )
+} finally {
+  fs.rmSync(workRoot, { recursive: true, force: true })
+}
+
+if (failures > 0) {
+  console.error(`\ntest-workflow-hardening: ${failures} case(s) failed.`)
+  process.exit(1)
+}
+console.log('\ntest-workflow-hardening: the gate rejected every hardening property it claims to enforce, in both directions where it has two.')

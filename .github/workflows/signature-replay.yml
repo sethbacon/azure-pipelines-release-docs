@@ -29,6 +29,26 @@
 # means a signature could not run at all. Two is never a pass, which is why every
 # checkout below is load-bearing rather than convenience.
 #
+# THE CREDENTIAL IS ALIVE FOR EXACTLY ONE STEP. It is minted, spent on the one
+# checkout it exists for, and then explicitly REVOKED — before the commit under
+# test enters the analysed tree and before any signature shells out to a
+# checked-out repository's own committed gate scripts. Six of the thirteen
+# ado-extension signatures do exactly that, so the alternative was fifteen
+# repositories' code running beside a live cross-repo installation token, held
+# off by a `kind` value in a file in another repository (#32). The revoke step
+# then spends the dead token and fails the job if it still works, so the
+# property is asserted on every run rather than assumed.
+#
+# WHAT THIS FILE STILL CANNOT DO. `replay` is a required check and cannot go
+# green on a Dependabot PR or a fork PR: those runs read the Dependabot secret
+# store or no store at all, `secrets.SUITE_READ_APP_KEY` resolves empty, and the
+# token step fails before anything runs. That is not fixable in one repository.
+# Mirroring the App private key into the Dependabot store is the obvious move
+# and the wrong one — `pull_request` runs the workflow file from the PR head and
+# Dependabot edits workflow files — so the estate is choosing between three
+# options in sethbacon/azure-pipelines-packer#263, and every host of this file
+# has to land the same one. Tracked here as #31; do not resolve it locally.
+#
 # ADDING THIS FILE WAS NOT ENFORCEMENT, AND THE REST HAS SINCE LANDED. `replay`
 # also had to be added to main's required_status_checks, pinned to app 15368
 # (GitHub Actions), and only AFTER a run on this repo proved the context reports
@@ -53,14 +73,73 @@ on:
 permissions:
   contents: read
 
+# `github.event_name` is in the group because `github.ref` alone does not tell a
+# scheduled run from a push to main — both are refs/heads/main, so the two shared
+# one group and cancelled each other (#35). ci.yml in this same repository
+# already groups this way. And cancel-in-progress is narrowed to pull_request
+# for the reason the header gives for having a schedule at all: check 2 and the
+# "new instance written since the fix" case depend on time passing, and a
+# cancelled run is neither the exit 1 that means a signature found something nor
+# the exit 2 that means it could not run. Only a superseded PR run is safe to
+# discard.
 concurrency:
-  group: signature-replay-${{ github.ref }}
-  cancel-in-progress: true
+  group: signature-replay-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   replay:
     runs-on: ubuntu-latest
+    # This job checks out fifteen repositories, runs each one's OWN committed
+    # gate scripts, and mints a GitHub App token on the way. It was the only job
+    # in the repository with neither a timeout nor harden-runner (#22): without a
+    # bound, a stalled replay holds the runner — and anything it minted — for the
+    # platform default of six hours. Thirty minutes is roughly triple a normal
+    # run.
+    timeout-minutes: 30
+    # Nothing is checked out at the workspace root — every checkout below lands
+    # under suite/ — so this repository's own gate scripts are reached through
+    # its suite path, which is the literal `path:` its checkout uses. On a
+    # pull_request the self-overwrite step replaces that tree with the commit
+    # under test, so the redactor that runs is the one being reviewed, exactly
+    # like every other gate in this repository.
+    env:
+      SELF: suite/azure-pipelines-release-docs
     steps:
+      # block, not audit, and this is the job #22 named as the best candidate for
+      # it in the whole repository: it executes foreign code from fifteen repos.
+      # Every destination below is derivable from this file — the checkouts and
+      # the `gh` calls go to GitHub, and the three setup-* actions fetch their
+      # toolchains and the Go module cache. Nothing here resolves a dependency
+      # tree, so unlike ci.yml's build job the set does not move under us (#23).
+      #
+      # If a legitimate destination is missing, harden-runner names it in the run
+      # summary as a blocked connection. Add it here with a reason; do not
+      # downgrade the policy. Two entries are here because the first run of this
+      # policy blocked them, which is the process working:
+      # release-assets.githubusercontent.com is where a
+      # github.com/<owner>/<repo>/releases/download/... URL now redirects, and
+      # setup-node fetches its runtime that way (it is NOT
+      # objects.githubusercontent.com any more); nodejs.org is setup-node's own
+      # documented fallback when that mirror is unreachable, and without it a
+      # CDN blip turns a required check red.
+      - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            *.actions.githubusercontent.com:443
+            *.blob.core.windows.net:443
+            api.github.com:443
+            codeload.github.com:443
+            github.com:443
+            nodejs.org:443
+            objects.githubusercontent.com:443
+            proxy.golang.org:443
+            raw.githubusercontent.com:443
+            registry.npmjs.org:443
+            release-assets.githubusercontent.com:443
+            storage.googleapis.com:443
+            sum.golang.org:443
+
       # Every repo in SIGNATURE_SCOPE must be present. A signature that cannot
       # run against a repo establishes nothing about it, and the job exits 2
       # rather than pretending otherwise — so these checkouts are load-bearing,
@@ -219,19 +298,6 @@ jobs:
             path: suite/pipeline-task-core,
           }
 
-      # Overwrite this repo's sibling copy with the commit under test, so the
-      # replay reads the PR's code and not origin/main's. Guarded because
-      # `github.event.repository` is absent on schedule events — the path would
-      # collapse to `suite/` and dump this repo into the suite root. A scheduled
-      # run wants origin/main anyway, which the explicit checkout above already
-      # fetched.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name != 'schedule'
-        with:
-          persist-credentials: false
-          clean: false
-          path: suite/${{ github.event.repository.name }}
-
       # The one private repo, and so the one credential. `owner:` is load-bearing
       # rather than cosmetic: an app token is minted per INSTALLATION, and this
       # file also runs from a repo in another org, where the default — the running
@@ -256,6 +322,71 @@ jobs:
           repository: sethbacon/security-orchestration
           token: "${{ steps.suite-read.outputs.token }}"
           path: security-orchestration
+
+      # ── THE CREDENTIAL'S LIFE ENDS HERE ──────────────────────────────────
+      # Six of the thirteen ado-extension signatures are ADAPTERS: they shell
+      # out to each checked-out repository's OWN committed scripts/check-*.js.
+      # That is repo-committed code from fifteen repositories — and, on a
+      # pull_request, from the commit under review — executing in this job. It
+      # used to execute while this job held a live cross-repo installation token
+      # for the private security-orchestration repo, and the only thing stopping
+      # it was a `kind` value in a file in ANOTHER repository: flip scope.json's
+      # one line from `ado-extension-scaffold` to `ado-extension` and the code
+      # runs, with no change to any workflow in any host repo (#32).
+      #
+      # The token has done everything it is for by this point — the checkout
+      # above is its only consumer — so it is revoked HERE rather than left to
+      # the action's post-job cleanup. Everything below this step runs with a
+      # dead credential.
+      #
+      # The second half of the step is the proof, and it runs on every replay
+      # rather than at review time: it spends the revoked token against the one
+      # repository it was minted for and fails the job if that still works. A
+      # revocation nobody tests is a revocation that stops happening.
+      - name: Revoke the installation token before any repo-committed code runs
+        if: steps.suite-read.outputs.token != ''
+        env:
+          SUITE_READ_TOKEN: "${{ steps.suite-read.outputs.token }}"
+        run: |
+          set -euo pipefail
+          revoked=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: token ${SUITE_READ_TOKEN}" \
+            https://api.github.com/installation/token)
+          if [ "$revoked" != "204" ]; then
+            echo "::error::Revoking the security-orchestration installation token returned HTTP ${revoked}, not 204." \
+                 "The replay runs repo-committed gate scripts from fifteen repositories and must not do so while that" \
+                 "token is live (#32)."
+            exit 1
+          fi
+          still_reads=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: token ${SUITE_READ_TOKEN}" \
+            https://api.github.com/repos/sethbacon/security-orchestration)
+          if [ "$still_reads" = "200" ]; then
+            echo "::error::The installation token still reads sethbacon/security-orchestration after a 204 from" \
+                 "DELETE /installation/token. The revocation above is not doing what this job depends on it doing."
+            exit 1
+          fi
+          echo "Installation token revoked (DELETE 204) and confirmed dead (GET ${still_reads}); everything below runs uncredentialed."
+
+      # NOW the commit under test enters the analysed tree — after the token is
+      # gone, not before. Guarded because `github.event.repository` is absent on
+      # schedule events: the path would collapse to `suite/` and dump this repo
+      # into the suite root. A scheduled run wants origin/main anyway, which the
+      # explicit checkout above already fetched.
+      #
+      # Deliberately NOT restricted to same-repository pull requests. A fork PR
+      # replayed against origin/main's copy of this repo would report on code it
+      # never read, and a required check that answers about the wrong tree is
+      # worse than one that cannot answer at all. The revocation above is the
+      # control; the checkout guard would only have been a way of not looking.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name != 'schedule'
+        with:
+          persist-credentials: false
+          clean: false
+          path: suite/${{ github.event.repository.name }}
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -282,9 +413,40 @@ jobs:
         with:
           node-version: "20"
 
+      # Runs before the replay, not after: a redactor that has quietly stopped
+      # redacting produces output indistinguishable from a correct one, and by
+      # the time anyone notices it has already been published from a public
+      # repository. This plants site strings, redacts, and asserts none survive.
+      - name: The report redactor still redacts
+        run: node "$SELF/scripts/test-redact-replay-report.js"
+
+      # ── WHAT THIS REPOSITORY MAY PUBLISH ─────────────────────────────────
+      # replay.py emits, per tracked issue, the `regressed` and `unaddressed`
+      # SITES — file locations across fifteen repositories that the estate knows
+      # are defective and has not fixed — plus the full `matched` universe. This
+      # repository is PUBLIC, so both the artifact and this log are readable by
+      # anyone (#24). Fourteen of the fifteen scanned repos are public too, so
+      # the code is not the secret; the curated "known-bad and still unfixed"
+      # list is.
+      #
+      # The report is not deleted, because a required merge-blocking check whose
+      # output nobody keeps cannot be audited: a signature that enumerated
+      # nothing exits clean and looks exactly like one that enumerated
+      # everything. `ran_in`, `skipped`, `caveats` and the per-set counts are
+      # what tell those apart, and they are kept in full. Only the site lists go.
+      #
+      # stdout is captured rather than streamed for the same reason: #24's own
+      # recommendation was to read the findings from this log instead of the
+      # artifact, and on a public repository that is the same disclosure by
+      # another route. Both surfaces are redacted, or neither is.
+      #
+      # A gate error (exit 2) writes no --json and prints to stderr, which is not
+      # captured — an error message is not site data and stays visible.
+      #
       # --verify-linked-issues: a CLOSED linked issue stops absorbing residual.
       # Every issue the ledger links to is in a PUBLIC repo, which GITHUB_TOKEN
-      # reads without help; the app token is not needed here and is not given.
+      # reads without help; the app token is not needed here, is not given, and
+      # by this point no longer exists.
       # Link an issue in a private repo and this fails loudly as a GATE ERROR
       # rather than assuming open — at which point widen the credential, not the
       # assumption.
@@ -292,18 +454,50 @@ jobs:
         env:
           GH_TOKEN: "${{ github.token }}"
         run: |
+          set -euo pipefail
+          status=0
           python security-orchestration/remediation/replay/replay.py \
             --ledger security-orchestration/remediation/signatures/ledger.json \
             --repos-root suite \
             --verify-linked-issues \
-            --json replay-report.json
+            --json replay-report.raw.json > replay-report.raw.txt || status=$?
+          node "$SELF/scripts/redact-replay-report.js" \
+            --in-text replay-report.raw.txt \
+            --in-json replay-report.raw.json \
+            --out-text replay-report.txt \
+            --out-json replay-report.json \
+            --status "$status"
+          rm -f replay-report.raw.txt replay-report.raw.json
+          cat replay-report.txt
+          exit "$status"
 
-      # Exit 1 or 2 already failed the step above; this keeps the machine-readable
-      # report for the run someone will actually want to read.
+      # Belt and braces on the revocation above: if the job died between minting
+      # the token and revoking it, this is the only thing that shortens its life
+      # from an hour to this job's runtime. Silent when it has already been
+      # revoked, which is the normal case.
+      - name: Ensure the installation token is revoked
+        if: always() && steps.suite-read.outputs.token != ''
+        env:
+          SUITE_READ_TOKEN: "${{ steps.suite-read.outputs.token }}"
+        run: |
+          curl -sS -o /dev/null -X DELETE \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: token ${SUITE_READ_TOKEN}" \
+            https://api.github.com/installation/token || true
+
+      # Exit 1 or 2 already failed the replay step; this keeps the REDACTED
+      # machine-readable report for the run someone will actually want to read.
+      # `retention-days` is explicit and short: the redaction is what makes this
+      # publishable at all, and a bounded window is the second control rather
+      # than the first one. There is no third — Actions artifacts inherit
+      # repository read access, and no per-artifact ACL exists to reach for.
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: signature-replay-report
-          path: replay-report.json
+          path: |
+            replay-report.json
+            replay-report.txt
+          retention-days: 7
           if-no-files-found: warn

@@ -6,7 +6,15 @@ name: CI
     branches: [main]
   pull_request:
     branches: [main]
+  # workflow_call is LOAD-BEARING, not leftover. release.yml's `ci` job calls
+  # this file (`uses: ./.github/workflows/ci.yml`), which is why release.yml
+  # narrowed its dispatch trigger instead of threading a ref: the hook declares
+  # no inputs, so the called workflow tests whatever ref the run started from.
+  # It was recorded as an unused entry point (#36) against the commit before
+  # that release path landed. Declaring `inputs:`/`secrets:` here is a change to
+  # release.yml's dispatch rule as well as to this file.
   workflow_call: {}
+  # Manual reruns. Write-access-gated, and no in-repo caller by design.
   workflow_dispatch: {}
 
 concurrency:
@@ -28,7 +36,14 @@ jobs:
   manifest:
     name: Check Version Consistency
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
+      # hardening-exception: egress-audit — this job holds no stored credential and
+      # runs dependency-free node against the checked-out tree; there is nothing here
+      # worth exfiltrating and its egress is the runner's own action and toolchain
+      # fetches. The two jobs in this repository that DO hold a stored App private
+      # key — release-please and signature-replay's replay — are on `block` with an
+      # explicit allowlist (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -66,11 +81,18 @@ jobs:
   build:
     name: Build and Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-2025]
     steps:
+      # hardening-exception: egress-audit — this job runs `npm ci` and the per-task
+      # install/compile/test path, so its egress is npm's registry and CDN redirects
+      # rather than a set this file can enumerate; an allowlist here would be a guess
+      # that breaks a required check on a CDN change. It holds no stored credential.
+      # Same call 4cloudguru/cloud-suite-ui's publish.yml makes, and for the same
+      # stated reason (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -88,7 +110,12 @@ jobs:
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
+      # hardening-exception: egress-audit — `npm audit` posts the resolved tree to
+      # the registry's advisory endpoint and `npm ci` resolves through its CDN, so
+      # the destination set belongs to npm rather than to this file. No stored
+      # credential is present in this job (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -116,18 +143,36 @@ jobs:
   zizmor:
     name: Scan Workflows (zizmor)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       actions: read
       contents: read
       security-events: write
     steps:
+      # hardening-exception: egress-audit — the action fetches its own release
+      # binary and uploads SARIF to the code-scanning API; both destinations are
+      # upstream's to change and not this file's to enumerate. No stored credential
+      # is present in this job (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # An explicit threshold rather than whatever the action defaults to. The
+      # step carried no `with:` block at all, so what this required check would
+      # and would not fail on was an upstream decision this repository had not
+      # made (#30). `unknown` for both filters is zizmor's own no-filtering
+      # setting: everything it finds fails the job, which is what it was already
+      # doing and is now stated. .github/zizmor.yml carries the policy — every
+      # `uses:` must be hash-pinned — and the two documented, line-scoped
+      # exceptions.
       - uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+        with:
+          persona: regular
+          min-severity: unknown
+          min-confidence: unknown
+          online-audits: true
 
   # A job of its own rather than another step on `manifest`. Steps bolted onto
   # `manifest` inherit its already-required status check and so block a merge on
@@ -148,7 +193,11 @@ jobs:
   docs-claims:
     name: Check Documented Claims
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
+      # hardening-exception: egress-audit — this job holds no stored credential and
+      # runs one dependency-free node script over the checked-out documents; its
+      # egress is the runner's own action and toolchain fetches (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -176,7 +225,12 @@ jobs:
   actionlint:
     name: Lint GitHub Actions
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
+      # hardening-exception: egress-audit — this job downloads one pinned release
+      # asset and verifies it against a committed SHA256 before extracting, which is
+      # an integrity control rather than an egress one; it holds no stored
+      # credential (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -223,3 +277,25 @@ jobs:
             exit 1
           fi
           echo "actionlint rejected the broken fixture, as a working linter must"
+
+      # ── The hardening properties actionlint and zizmor do not check ────────
+      # Four findings landed on the same day saying the same thing about this
+      # tree: full-SHA pinning (#30), harden-runner coverage (#22), a non-audit
+      # egress policy (#23) and `--ignore-scripts` on every install (#21) were
+      # all true and all unenforced. This gate is where they stop being
+      # conventions. It lives HERE rather than on `manifest` because it is a
+      # statement about workflows, and a workflow failure reported under the
+      # context name "Check Version Consistency" is the misdirection #44 filed
+      # against that job. "Lint GitHub Actions" is already a required context,
+      # so the gate blocks a merge on the day it lands.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Workflow hardening invariants
+        run: node scripts/check-workflow-hardening.js
+      # Same contract as every other gate in this repository: break the thing
+      # the gate protects and watch it fail BY NAME, beside the gate, on every
+      # pull request. A gate that has quietly stopped detecting anything looks
+      # exactly like a clean tree.
+      - name: Workflow-hardening gate detects what it claims to
+        run: node scripts/test-workflow-hardening.js

@@ -74,6 +74,7 @@ staying still would have been the same drift pointing the other way.
 | `marketplace-publish` | enforced | `.github/workflows/release.yml` builds, packages and publishes the `.vsix` from a tagged commit on `main`. It replaces an unreviewed `tfx` invocation on a maintainer's machine (#26). |
 | `publish-environment-approval` | enforced | The `publish-marketplace` job declares `environment: marketplace`, so the publish stops at that environment's protection rules. The `guard` job re-verifies, fail-closed, that the environment still has a required reviewer and a deployment branch/ref policy before anything is built. |
 | `vsix-signature` | enforced | `sbom-and-sign` signs the `.vsix` with keyless cosign and attaches a build-provenance attestation. Both the draft release and the publish re-run `cosign verify-blob` against this repository's own workflow identity first, so the bytes published are provably the bytes signed. |
+| `workflow-hardening` | enforced | `scripts/check-workflow-hardening.js` runs in CI's **Lint GitHub Actions** job and fails the build if any `uses:` is not pinned to a full commit SHA with a version comment, any npm install runs without `--ignore-scripts`, any job declares no `timeout-minutes`, or any job's egress policy is `audit` without a recorded reason on the step. Every one of those four was true of this tree and enforced by nothing (#21, #22, #23, #30). `scripts/test-workflow-hardening.js` breaks each property in a fixture and asserts the gate names it. |
 | `sbom-attestation` | enforced | `sbom-and-sign` generates a CycloneDX SBOM of the extension's production closure and attests it to the `.vsix`. `@cyclonedx/cyclonedx-npm` is a devDependency again, and this time a workflow invokes it. With no tasks yet the SBOM has no third-party components, which is the truth about a `.vsix` that bundles none; `scripts/check-release-readiness.js` fails the release the day a task lands without an SBOM of its own, so that emptiness cannot outlive the empty tree. |
 
 <!-- controls:end -->
@@ -89,9 +90,21 @@ every pull request to `main`, and all of them are configured as required status 
   override may opt into a public listing is convention rather than a gate (#43).
 - **Check Documented Claims** — `scripts/check-docs-claims.js`. The control table above, and every
   repo-relative path these documents name.
+- **Lint GitHub Actions** — actionlint, plus `scripts/check-workflow-hardening.js`: full-SHA action
+  pinning, `--ignore-scripts` on every install, a `timeout-minutes` on every job, and an egress
+  policy that is either `block` with an endpoint allowlist or `audit` with the reason written on the
+  step. Both carry mutation self-tests that run beside them on every pull request.
 - **Build and Test** (ubuntu and windows), **Dependency audit**, **Scan Workflows (zizmor)**,
   **Analyze (javascript-typescript)** (CodeQL), and **replay**, the estate's structural signature
   gate.
+
+Two properties of those jobs are worth stating because they are not visible from the list. The two
+jobs that hold a **stored** GitHub App private key — `release-please` and signature-replay's
+`replay` — run harden-runner with `egress-policy: block` and an explicit endpoint allowlist; every
+other job is on `audit` with the reason recorded on the step and enforced in both directions by the
+gate above. And `replay` revokes its installation token immediately after the one checkout it exists
+for, then spends the revoked token and fails if it still works — so the fifteen repositories' own
+committed gate scripts, and the commit under review, execute in a job holding no credential.
 
 Three more gates run only at release time, in `release.yml`'s `guard` job, because they answer
 questions a pull request cannot: `scripts/check-release-readiness.js` (the release preconditions —
@@ -127,4 +140,26 @@ in `pipeline-task-core`.
 
 Recorded here as they are accepted, with the reasoning and the decision date.
 
-_None recorded yet — this repository is a scaffold._
+- **`replay` cannot report green on a Dependabot or fork pull request** (2026-08-19, #31). It is a
+  required status check, and on those runs `secrets.SUITE_READ_APP_KEY` resolves to the empty string
+  — Dependabot runs read the Dependabot secret store, fork runs read none — so the token step fails
+  before any signature runs. The obvious remedy, mirroring the App private key into the Dependabot
+  store, is declined: `pull_request` runs the workflow file from the PR head and Dependabot edits
+  workflow files, which would give a compromised upstream action a path to the key. The estate is
+  choosing between three options in `sethbacon/azure-pipelines-packer#263` and every host of this
+  workflow has to land the same one, so it is deliberately **not** resolved here. Until it is, a
+  Dependabot PR needs an admin merge after confirming it touches nothing the signatures analyse.
+- **`.github/workflows/release.yml` runs entirely on `egress-policy: audit`** (2026-08-19, #23). It
+  is the most privileged workflow in the repository — `id-token`, `attestations` and `contents:
+  write` — and it has never executed, because `azure-devops-extension.json` declares no
+  contributions and the `guard` job stops every tag. There is therefore no observed egress record to
+  build an allowlist from, and a guessed one fails a first release after a human has approved the
+  environment gate. Each of its seven jobs carries the reason on the step; derive the lists from the
+  first real run's harden-runner summaries and flip them then.
+- **The redacted replay report is still published from a public repository** (2026-08-19, #24).
+  `scripts/redact-replay-report.js` strips every site list from both the artifact and the job log
+  before either is published, leaving the per-signature evidence (which repositories it ran in, what
+  it skipped, and the counts) that a green required check needs to be worth anything. What remains
+  public is that evidence plus the ledger's issue numbers and titles, all of which point at public
+  repositories. Retention is bounded at seven days. Restricting who may download it is not an
+  option: Actions artifacts inherit repository read access and there is no per-artifact ACL.

@@ -27,9 +27,12 @@
     "check:docs-claims": "node scripts/check-docs-claims.js",
     "check:composition": "node scripts/check-package-composition.js",
     "check:audit-scope": "node scripts/check-audit-scope.js",
+    "check:workflow-hardening": "node scripts/check-workflow-hardening.js",
     "check:release-readiness": "node scripts/check-release-readiness.js",
     "test:composition": "node scripts/test-package-composition.js",
     "test:gates": "node scripts/test-gates.js",
+    "test:workflow-hardening": "node scripts/test-workflow-hardening.js",
+    "test:redact-replay": "node scripts/test-redact-replay-report.js",
     "test:release-readiness": "node scripts/test-release-readiness.js",
     "test:publish": "node scripts/test-publish-marketplace.js"
   },
