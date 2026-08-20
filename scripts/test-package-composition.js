@@ -86,6 +86,30 @@ function makeCleanTree(name) {
   fs.cpSync(path.join(repoRoot, 'scripts'), path.join(dir, 'scripts'), { recursive: true })
   fs.writeFileSync(path.join(dir, 'azure-devops-extension.json'), `${JSON.stringify(cleanManifest, null, 2)}\n`)
   fs.writeFileSync(path.join(dir, '.release-please-manifest.json'), `${JSON.stringify({ '.': VERSION }, null, 2)}\n`)
+  // The fixture carries the files check-versions.js reads beyond the manifest:
+  // the release-please config that anchors the extension id, the declared task
+  // universe, and the packaging overrides that decide the publish identity.
+  // Added when those checks landed (#39, #43, #44) so this tree stays a
+  // FAITHFUL replica — a fixture missing what a gate reads exercises less of
+  // the gate, not more of it. Note the universe here declares one task, which
+  // is what this fixture has; the repository's own declares none.
+  fs.writeFileSync(
+    path.join(dir, '.release-please-config.json'),
+    `${JSON.stringify({ packages: { '.': { 'package-name': cleanManifest.id } } }, null, 2)}\n`,
+  )
+  fs.writeFileSync(
+    path.join(dir, 'task-universe.json'),
+    `${JSON.stringify({ expect: 'present', minTasks: 1, why: 'Fixture tree for the composition mutation self-test: exactly one canonical task.' }, null, 2)}\n`,
+  )
+  fs.mkdirSync(path.join(dir, 'configs'), { recursive: true })
+  fs.writeFileSync(
+    path.join(dir, 'configs', 'dev.json'),
+    `${JSON.stringify({ id: `${cleanManifest.id}-dev`, publisher: cleanManifest.publisher, public: false }, null, 2)}\n`,
+  )
+  fs.writeFileSync(
+    path.join(dir, 'configs', 'release.json'),
+    `${JSON.stringify({ id: cleanManifest.id, publisher: cleanManifest.publisher, public: true, galleryFlags: ['Public'] }, null, 2)}\n`,
+  )
   fs.writeFileSync(path.join(dir, 'LICENSE'), 'fixture licence\n')
   fs.writeFileSync(path.join(dir, 'overview.md'), '# Fixture\n')
   fs.mkdirSync(path.join(dir, 'images'), { recursive: true })
