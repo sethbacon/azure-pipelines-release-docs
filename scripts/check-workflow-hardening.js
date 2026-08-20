@@ -84,7 +84,7 @@ const ROOT = path.resolve(process.argv.filter((a) => a !== '--json')[2] || path.
 const findings = []
 const fail = (kind, where, message) => findings.push({ kind, where, message })
 
-const enumerated = { workflows: 0, jobs: 0, uses: 0, installs: 0, hardenRunners: 0, egressExceptions: 0 }
+const enumerated = { workflows: 0, jobs: 0, uses: 0, installs: 0, hardenRunners: 0, egressExceptions: 0, preHardenActionlessSteps: 0 }
 
 const EXCEPTION_MARKER = 'hardening-exception: egress-audit'
 const MIN_REASON_CHARS = 20
@@ -132,29 +132,34 @@ function parseJobs(lines) {
 }
 
 /**
- * The first `- ` step item of a job, as its own slice of lines. Returns null
- * for a job with no `steps:` (a reusable-workflow call).
+ * Every step of a job, in order, with the comment block above each one
+ * attached to it: that is where a reader — and this gate — expects a step's
+ * reasoning, and its `hardening-exception` marker, to live. Returns [] for a
+ * job with no `steps:` (a reusable-workflow call).
+ *
+ * @returns {{lines: string[], offset: number}[]}
  */
-function firstStepOf(jobLines) {
+function stepsOf(jobLines) {
   const stepsAt = jobLines.findIndex((line) => /^\s{4}steps:\s*$/.test(line))
-  if (stepsAt === -1) return null
-  let start = -1
-  let end = jobLines.length
+  if (stepsAt === -1) return []
+  const starts = []
   for (let i = stepsAt + 1; i < jobLines.length; i++) {
-    if (!/^\s{6}- /.test(jobLines[i])) continue
-    if (start === -1) start = i
-    else {
-      end = i
-      break
-    }
+    if (/^\s{6}- /.test(jobLines[i])) starts.push(i)
   }
-  if (start === -1) return null
-  // Comment lines directly above the first step belong to it: that is where a
-  // reader — and this gate — expects the exception's reasoning to live.
-  let commentStart = start
-  while (commentStart > stepsAt + 1 && (isComment(jobLines[commentStart - 1]) || isBlank(jobLines[commentStart - 1]))) commentStart--
-  return { lines: jobLines.slice(commentStart, end), offset: commentStart }
+  return starts.map((start, n) => {
+    const end = n + 1 < starts.length ? starts[n + 1] : jobLines.length
+    let commentStart = start
+    const floor = n === 0 ? stepsAt + 1 : starts[n - 1] + 1
+    while (commentStart > floor && (isComment(jobLines[commentStart - 1]) || isBlank(jobLines[commentStart - 1]))) commentStart--
+    return { lines: jobLines.slice(commentStart, end), offset: commentStart }
+  })
 }
+
+/** The lines of a step with its comments stripped — what it actually runs. */
+const runnableOf = (step) => step.lines.filter((line) => !isComment(line)).join('\n')
+
+/** Does this step run an action at all? A step with no `uses:` runs no foreign code. */
+const runsAnAction = (step) => /^\s*-?\s*uses:\s*\S/m.test(runnableOf(step))
 
 /* ------------------------------------------------------------------ *
  * The workflows themselves.
@@ -250,24 +255,47 @@ for (const file of workflowFiles) {
       }
     }
 
-    const first = firstStepOf(job.lines)
-    if (first === null) {
+    const steps = stepsOf(job.lines)
+    if (steps.length === 0) {
       if (!isReusableCall) {
         fail('egress', jobWhere, 'has neither `steps:` nor a reusable-workflow `uses:` — this gate cannot tell what it runs')
       }
       continue
     }
 
-    const stepText = first.lines.join('\n')
-    const runnable = first.lines.filter((line) => !isComment(line)).join('\n')
+    // WHAT THIS INVARIANT ACTUALLY PROTECTS: that no FOREIGN CODE runs before
+    // the egress policy is armed. It used to be stated as "harden-runner is
+    // step one", which is the same thing everywhere it had been applied — until
+    // signature-replay's Dependabot integrity guard needed position one for a
+    // reason of its own. That guard deliberately carries NO `uses:`: it is plain
+    // shell over the pre-installed `gh` CLI, so it executes nothing foreign and
+    // cannot exfiltrate anything an egress policy would have caught, and it has
+    // to decide BEFORE any action runs — including harden-runner's own pin,
+    // which Dependabot bumps like any other.
+    //
+    // So the rule is stated as what it means: harden-runner must be the first
+    // step that RUNS AN ACTION. A step carrying a `uses:` before it still fails,
+    // which is the whole property. This is a signature taught, not a site
+    // exempted — no allowlist of blessed jobs, and a second actionless step
+    // added tomorrow needs no edit here.
+    const anchorIdx = steps.findIndex(runsAnAction)
+    const anchor = anchorIdx === -1 ? null : steps[anchorIdx]
+    enumerated.preHardenActionlessSteps += anchorIdx === -1 ? steps.length : anchorIdx
+
+    const stepText = anchor === null ? '' : anchor.lines.join('\n')
+    const runnable = anchor === null ? '' : runnableOf(anchor)
     const hasException = stepText.includes(EXCEPTION_MARKER)
 
     if (!/step-security\/harden-runner@/.test(runnable)) {
       fail(
         'egress',
         jobWhere,
-        'does not begin with step-security/harden-runner. Every other job in this repository does, and the one that ' +
-          'skipped it was the one holding a GitHub App token (#22)',
+        anchor === null
+          ? 'runs no action at all and so never reaches step-security/harden-runner. Every job in this repository ' +
+              'arms an egress policy before it runs anything (#22)'
+          : 'runs an action before step-security/harden-runner. harden-runner must be the FIRST step that runs an ' +
+              'action, so nothing foreign executes before the egress policy is armed; only steps that carry no ' +
+              '`uses:` may precede it (#22)',
       )
       if (hasException) enumerated.egressExceptions++
       continue
@@ -413,6 +441,7 @@ if (enumerated.jobs === 0 && workflowFiles.length > 0) {
 const summary =
   `enumerated: ${enumerated.jobs} job(s) over ${enumerated.workflows} workflow(s), ${enumerated.uses} \`uses:\` ref(s), ` +
   `${enumerated.installs} npm install invocation(s), ${enumerated.hardenRunners} harden-runner step(s), ` +
+  `${enumerated.preHardenActionlessSteps} actionless step(s) ahead of a harden-runner, ` +
   `${enumerated.egressExceptions} recorded egress exception(s).`
 
 if (JSON_OUTPUT) {
