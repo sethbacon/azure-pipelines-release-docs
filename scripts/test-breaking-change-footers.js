@@ -12,6 +12,17 @@
 // required context asserting nothing. That is the estate's most expensive
 // failure mode and it is what this file refuses.
 //
+// One of those three was, until `gh-unavailable` below, a claim this file did
+// not honour. Delete `set -euo pipefail` from the guard and every case here
+// still passes: the fixture `gh` always succeeds, so no case ever depends on
+// what the guard does when a command fails. The mutation was applied to the
+// sibling port in azure-pipelines-packer and the suite stayed green. What the
+// lost `set -euo pipefail` actually degrades to is a failed `gh api` leaving an
+// empty commits.ndjson, a loop that counts nothing, and "declarations in this
+// PR: 0" reported green -- a required context that has stopped looking, and
+// indistinguishable from a clean tree. `gh-unavailable` is the case that closes
+// it, and the only one here that fails on that mutation.
+//
 // HOW. The `run:` block is EXTRACTED from the workflow file rather than
 // copied here: a copy would drift from the thing it claims to prove, which is
 // the same defect one level up. `gh` is stubbed with a script that prints a
@@ -28,6 +39,11 @@
 //   prose-mention                a mid-line mention is prose, not a footer
 //   summary-names-the-commits    the failure says WHICH commits, in the job
 //                                summary a reviewer actually reads
+//   gh-unavailable               it FAILS CLOSED when it cannot read the
+//                                commit list -- an unreadable history counted
+//                                as zero declarations is a green context
+//                                asserting nothing, and it is what a lost
+//                                `set -euo pipefail` degrades to
 //   job-present                  the vacuity contract: if the job or its
 //                                script cannot be found, this test fails
 //                                rather than passing over nothing
@@ -55,7 +71,7 @@ const report = (ok, message) => {
  * Extract the guard from the workflow.
  * ------------------------------------------------------------------ */
 
-/** The dedented body of the last `run: |` block inside job `key`. */
+/** The dedented body of the first `run: |` block inside job `key`. */
 function extractRunBlock(yaml, key) {
   const lines = yaml.split(/\r?\n/)
   const start = lines.findIndex((line) => new RegExp(`^  ${key}:\\s*$`).test(line))
@@ -73,7 +89,14 @@ function extractRunBlock(yaml, key) {
   const runAt = body.findIndex((line) => /^\s+run:\s*\|\s*$/.test(line))
   if (runAt === -1) return { error: `job \`${key}\` has no \`run: |\` block` }
 
-  const indent = /^(\s+)/.exec(body[runAt + 1] || '')
+  // Indent comes from the first NON-BLANK line of the block. Taking it from
+  // `runAt + 1` unconditionally would turn a block that merely opens with a
+  // blank line -- which is exactly what deleting the `set -euo pipefail` line
+  // leaves behind -- into "block is empty", and this file would then report
+  // that instead of running its cases against the guard it still has.
+  let firstBody = runAt + 1
+  while (firstBody < body.length && body[firstBody].trim() === '') firstBody += 1
+  const indent = /^(\s+)/.exec(body[firstBody] || '')
   if (!indent) return { error: `job \`${key}\`'s \`run: |\` block is empty` }
 
   const script = []
@@ -111,8 +134,19 @@ const binDir = path.join(workRoot, 'bin')
 fs.mkdirSync(binDir)
 fs.writeFileSync(path.join(binDir, 'gh'), '#!/bin/sh\ncat "$FIXTURE_COMMITS"\n', { mode: 0o755 })
 
+// The other `gh`: one that fails the way the real one does on an API error, a
+// revoked token or a rate limit. The guard must not read that as "no breaking
+// changes here".
+const failingBinDir = path.join(workRoot, 'bin-failing')
+fs.mkdirSync(failingBinDir)
+fs.writeFileSync(
+  path.join(failingBinDir, 'gh'),
+  '#!/bin/sh\necho "gh: HTTP 403: Resource not accessible by integration" >&2\nexit 1\n',
+  { mode: 0o755 },
+)
+
 let fixtureSeq = 0
-function runGuard(commits) {
+function runGuard(commits, stubDir = binDir) {
   const dir = path.join(workRoot, `case-${(fixtureSeq += 1)}`)
   fs.mkdirSync(dir)
   const fixture = path.join(dir, 'commits.json')
@@ -125,7 +159,7 @@ function runGuard(commits) {
     encoding: 'utf8',
     env: {
       ...process.env,
-      PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
+      PATH: `${stubDir}${path.delimiter}${process.env.PATH}`,
       FIXTURE_COMMITS: fixture,
       GH_TOKEN: 'stub',
       PR_NUMBER: '123',
@@ -218,6 +252,22 @@ try {
     ['declares 3 breaking changes'],
     ['The other 2 would ship with no changelog entry'],
   )
+
+  console.log('\nthe guard has to fail closed, not quiet:')
+  // `set -euo pipefail` is the whole of this property, and this is the one case
+  // that notices when it goes. Without it the failed `gh api` leaves an empty
+  // commits.ndjson behind, the loop counts nothing, and the job reports
+  // "declarations in this PR: 0" and exits 0.
+  {
+    const { status, output } = runGuard(['feat: anything at all'], failingBinDir)
+    const failedClosed = status !== 0 && !output.includes('declarations in this PR: 0')
+    report(
+      failedClosed,
+      failedClosed
+        ? `gh-unavailable: exits ${status} rather than counting an unreadable history as zero`
+        : `gh-unavailable: exited ${status} when \`gh\` failed, so an unreadable commit list passes as clean\n${output}`,
+    )
+  }
 } finally {
   fs.rmSync(workRoot, { recursive: true, force: true })
 }

@@ -117,7 +117,10 @@ jobs:
   #
   # It is mutation-proved: scripts/test-breaking-change-footers.js extracts the
   # script below from this file and runs it against fixture commit histories,
-  # in the required "Lint GitHub Actions" job.
+  # in the required "Lint GitHub Actions" job. That includes the `set -euo
+  # pipefail` on the first line -- delete it and the `gh-unavailable` case goes
+  # red, because a failed `gh api` would otherwise leave an empty commit list,
+  # count zero declarations and report green.
   #
   # A NEW required context has to be added to main's branch protection by hand:
   # "Breaking-change footers survive the squash". Until that is done this job

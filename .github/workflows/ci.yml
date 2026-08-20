@@ -326,5 +326,10 @@ jobs:
       # nothing (#49). This EXTRACTS the script from the workflow and runs it
       # against fixture commit histories with `gh` stubbed — here, in the
       # workflow-shaped job, because that is what it is a statement about.
+      #
+      # The `set -euo pipefail` half of that sentence was aspirational until the
+      # `gh-unavailable` case: every fixture used a `gh` that succeeds, so no
+      # case could tell a guard that fails closed from one that does not. The
+      # stub that exits non-zero is what makes the claim true.
       - name: Breaking-change footer guard detects what it claims to
         run: node scripts/test-breaking-change-footers.js
