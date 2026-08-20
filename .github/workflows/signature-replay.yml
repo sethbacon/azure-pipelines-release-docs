@@ -525,6 +525,14 @@ jobs:
       # rather than at review time: it spends the revoked token against the one
       # repository it was minted for and fails the job if that still works. A
       # revocation nobody tests is a revocation that stops happening.
+      #
+      # Scope, so nobody mistakes this for the primary control: the token is in
+      # the environment of exactly three steps -- the security-orchestration
+      # checkout above, this one, and the belt-and-braces re-revoke at the end.
+      # The step that runs repo-committed gate scripts from fifteen repositories
+      # never has it. That environment scoping is what actually answers #32;
+      # this revocation bounds what a leak elsewhere would be worth, and the GET
+      # below proves the revocation works. Defence in depth, not the depth.
       - name: Revoke the installation token before any repo-committed code runs
         if: steps.suite-read.outputs.token != ''
         env:
@@ -541,13 +549,36 @@ jobs:
                  "token is live (#32)."
             exit 1
           fi
-          still_reads=$(curl -sS -o /dev/null -w '%{http_code}' \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: token ${SUITE_READ_TOKEN}" \
-            https://api.github.com/repos/sethbacon/security-orchestration)
+          # The DELETE above is authoritative; this GET only proves it took effect.
+          # Revocation is not instantaneous across GitHub's read path, so a 200 here
+          # can mean "not yet propagated" rather than "not revoked" -- and the two are
+          # indistinguishable from a single sample. Under estate-wide fan-out (~15
+          # replay jobs minting from one App installation at once) this step failed
+          # twice and passed on re-run with an identical workflow blob, which is the
+          # signature of propagation, not of a live token.
+          #
+          # So sample until it stops reading, rather than once. A propagation delay
+          # clears within a couple of attempts; a token that is genuinely still live
+          # keeps answering 200 and still fails the job. The retry distinguishes the
+          # two cases instead of hiding either.
+          still_reads=""
+          for attempt in 1 2 3 4; do
+            still_reads=$(curl -sS -o /dev/null -w '%{http_code}' \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: token ${SUITE_READ_TOKEN}" \
+              https://api.github.com/repos/sethbacon/security-orchestration)
+            if [ "$still_reads" != "200" ]; then
+              break
+            fi
+            if [ "$attempt" -lt 4 ]; then
+              echo "Token still reads security-orchestration ${attempt}s after DELETE 204; re-checking."
+              sleep "$attempt"
+            fi
+          done
           if [ "$still_reads" = "200" ]; then
             echo "::error::The installation token still reads sethbacon/security-orchestration after a 204 from" \
-                 "DELETE /installation/token. The revocation above is not doing what this job depends on it doing."
+                 "DELETE /installation/token and 4 attempts over ~6s. This is past any plausible propagation" \
+                 "delay: the revocation is not doing what this job depends on it doing."
             exit 1
           fi
           echo "Installation token revoked (DELETE 204) and confirmed dead (GET ${still_reads}); everything below runs uncredentialed."
