@@ -22,6 +22,9 @@
 //   per-task-no-npm-helper   no npm() helper for the gate to read        (#45)
 //   no-timeout               a job that can hold a runner for six hours  (#22)
 //   no-harden-runner         the one job that skipped it                 (#22)
+//   action-before-harden-runner  an action ahead of the egress policy    (#22)
+//   job-runs-no-action       a job that never reaches harden-runner      (#22)
+//   actionless-step-before-harden-runner  the allowance, asserted as a pass
 //   audit-unexplained        egress downgraded with no stated reason     (#23)
 //   thin-reason              an exception marker with no real reason     (#23)
 //   stale-exception          a reason outliving the audit it explained   (#23)
@@ -260,7 +263,55 @@ try {
       editWorkflow(dir, 'alpha.yml', (y) =>
         y.replace(`      - uses: step-security/harden-runner@${HR_SHA} # v2.21.0\n        with:\n          egress-policy: block\n`, ''),
       ),
-    ['does not begin with step-security/harden-runner'],
+    ['runs an action before step-security/harden-runner'],
+  )
+  // The property the "harden-runner is step one" wording used to stand in for,
+  // now stated directly: an ACTION ahead of the egress policy is the failure,
+  // whatever it is and however innocuous its name. This is the case that would
+  // silently start passing if the rule were relaxed to an allowlist of blessed
+  // jobs instead of a rule about what a step runs.
+  expectRejection(
+    'action-before-harden-runner',
+    (dir) =>
+      editWorkflow(dir, 'alpha.yml', (y) =>
+        y.replace(
+          `    steps:\n      - uses: step-security/harden-runner@${HR_SHA} # v2.21.0`,
+          `    steps:\n      - uses: actions/checkout@${SHA} # v7.0.1\n      - uses: step-security/harden-runner@${HR_SHA} # v2.21.0`,
+        ),
+      ),
+    ['runs an action before step-security/harden-runner'],
+  )
+  // A job that reaches no harden-runner at all, because it runs no action at
+  // all. Without this the zero-action branch of the rule is unreachable in
+  // testing and could rot into a pass.
+  expectRejection(
+    'job-runs-no-action',
+    (dir) =>
+      editWorkflow(dir, 'beta.yml', (y) =>
+        y.replace(
+          /      # hardening-exception[\s\S]*?egress-policy: audit\n/,
+          '      - name: only shell here\n        run: echo hi\n',
+        ),
+      ),
+    ['runs no action at all'],
+  )
+  // The allowance, which has to be asserted as a PASS or the rule is only ever
+  // exercised in the rejecting direction: a step carrying no `uses:` runs no
+  // foreign code, so it may precede harden-runner. That is what lets
+  // signature-replay's Dependabot integrity guard hold position one, where it
+  // must be to decide before any action — harden-runner's own pin included —
+  // executes. The enumeration count is asserted too, so a gate that stopped
+  // seeing such steps could not pass this case by ignoring them.
+  expectPass(
+    'actionless-step-before-harden-runner',
+    (dir) =>
+      editWorkflow(dir, 'alpha.yml', (y) =>
+        y.replace(
+          `    steps:\n      - uses: step-security/harden-runner@${HR_SHA} # v2.21.0`,
+          `    steps:\n      - name: decides before anything foreign runs\n        run: echo guard\n      - uses: step-security/harden-runner@${HR_SHA} # v2.21.0`,
+        ),
+      ),
+    ['1 actionless step(s) ahead of a harden-runner'],
   )
 
   console.log('\nmutations — egress policy, both directions (#23):')
