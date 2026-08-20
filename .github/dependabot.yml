@@ -69,3 +69,30 @@ updates:
       commit-message-check:
         patterns:
           - "*"
+
+  # ---------------------------------------------------------------------------
+  # npm (per task) — each task is an independent package with its own lockfile,
+  # so `directory: /` covers none of them. Required by
+  # scripts/check-dependabot-coverage.js (#25).
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: npm
+    directory: /Tasks/Markdown2Html/Markdown2HtmlV1
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    groups:
+      markdown2html-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: npm
+    directory: /Tasks/PublishKbArticle/PublishKbArticleV1
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    groups:
+      publishkbarticle-dependencies:
+        patterns:
+          - "*"

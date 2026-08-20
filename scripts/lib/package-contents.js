@@ -115,6 +115,7 @@ const DROP_PATTERNS = [
   { re: /\.tsbuildinfo$/, why: 'incremental-build state' },
   { re: /(^|\/)tsconfig[^/]*\.json$/, why: 'compiler config' },
   { re: /(^|\/)eslint\.config\.mjs$/, why: 'lint config' },
+  { re: /(^|\/)eslint\.base\.mjs$/, why: 'lint config shared by the task configs that extend it' },
   { re: /(^|\/)\.eslintrc[^/]*$/, why: 'lint config' },
   { re: /(^|\/)\.gitignore$/, why: 'VCS config' },
   { re: /(^|\/)\.gitattributes$/, why: 'VCS config' },
