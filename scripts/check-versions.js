@@ -3,27 +3,26 @@
 
 // CI gate: every task.json must carry a well-formed Major/Minor/Patch version,
 // a unique GUID, and a name matching the estate's `Pipeline` prefix convention
-// (the prefix is what lets this extension install side-by-side with others).
+// (the prefix is what lets this extension install side-by-side with others), and
+// the extension version must agree with the one release-please is tracking.
+//
+// The task enumeration now comes from scripts/lib/task-dirs.js rather than being
+// open-coded here. It used to be one of three independent walks of Tasks/ — this
+// one and for-each-task.js each looked exactly two directory levels deep while
+// copy-build.js recursed the whole tree, so content the gates never saw was
+// still packaged (issue #37). Layout is enforced by
+// scripts/check-package-composition.js, which uses the same module.
 
 const fs = require('node:fs')
 const path = require('node:path')
+
+const { discoverTaskDirs } = require('./lib/task-dirs.js')
 
 const root = path.join(__dirname, '..')
 const errors = []
 
 function taskManifests() {
-  const tasksRoot = path.join(root, 'Tasks')
-  if (!fs.existsSync(tasksRoot)) return []
-  return fs
-    .readdirSync(tasksRoot, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
-    .flatMap((group) =>
-      fs
-        .readdirSync(path.join(tasksRoot, group.name), { withFileTypes: true })
-        .filter((e) => e.isDirectory())
-        .map((e) => path.join(tasksRoot, group.name, e.name, 'task.json'))
-        .filter((p) => fs.existsSync(p)),
-    )
+  return discoverTaskDirs(root).map((dir) => path.join(root, dir, 'task.json'))
 }
 
 const seenIds = new Map()
@@ -70,6 +69,33 @@ if (!/^\d+\.\d+\.\d+$/.test(extension.version || '')) {
 }
 if (extension.public !== false) {
   errors.push('azure-devops-extension.json: base manifest must keep "public": false; configs/release.json opts in')
+}
+
+// The manifest version is only SHAPE-checked above, and shape is not agreement.
+// release-please owns the version: .release-please-manifest.json drives the tag
+// and the changelog, and .release-please-config.json's extra-files entry
+// propagates it into azure-devops-extension.json's $.version, which is what
+// becomes the Marketplace version. A hand-edit of either file, or a
+// release-please run that only half-lands, leaves the published package
+// versioned differently from the tag and the changelog with nothing to say so
+// (issue #29).
+const releasePleaseManifestPath = path.join(root, '.release-please-manifest.json')
+let releasePleaseVersion = null
+try {
+  releasePleaseVersion = JSON.parse(fs.readFileSync(releasePleaseManifestPath, 'utf8'))['.']
+} catch (err) {
+  errors.push(`.release-please-manifest.json: not readable as JSON — ${err.message}`)
+}
+if (releasePleaseVersion !== null && releasePleaseVersion !== undefined) {
+  if (releasePleaseVersion !== extension.version) {
+    errors.push(
+      `version disagreement: azure-devops-extension.json says ${JSON.stringify(extension.version)} but ` +
+        `.release-please-manifest.json['.'] says ${JSON.stringify(releasePleaseVersion)} — ` +
+        'the published Marketplace version and the tag/changelog would diverge',
+    )
+  }
+} else {
+  errors.push(".release-please-manifest.json: missing the '.' package entry that drives this repo's version")
 }
 
 if (errors.length > 0) {

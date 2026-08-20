@@ -3,10 +3,15 @@
 
 // Runs one npm action across every task directory (Tasks/<Name>/<Name>V<n>).
 // Tasks are independent npm packages, so there is no workspace to lean on.
+//
+// The enumeration comes from scripts/lib/task-dirs.js, which is also what
+// check-versions.js validates and what copy-build.js packages — one definition
+// of "a task" instead of three (issue #37).
 
 const { execFileSync } = require('node:child_process')
-const fs = require('node:fs')
 const path = require('node:path')
+
+const { discoverTaskDirs } = require('./lib/task-dirs.js')
 
 const ACTIONS = {
   ci: (dir) => npm(['--prefix', dir, 'ci', '--no-update-notifier', '--no-progress']),
@@ -24,17 +29,7 @@ function tsc(args) {
 }
 
 function taskDirs() {
-  const root = path.join(__dirname, '..', 'Tasks')
-  if (!fs.existsSync(root)) return []
-  return fs
-    .readdirSync(root, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
-    .flatMap((group) =>
-      fs
-        .readdirSync(path.join(root, group.name), { withFileTypes: true })
-        .filter((e) => e.isDirectory() && fs.existsSync(path.join(root, group.name, e.name, 'task.json')))
-        .map((e) => path.join('Tasks', group.name, e.name)),
-    )
+  return discoverTaskDirs(path.join(__dirname, '..'))
 }
 
 const action = process.argv[2]
