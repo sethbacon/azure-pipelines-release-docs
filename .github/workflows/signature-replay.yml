@@ -29,12 +29,14 @@
 # means a signature could not run at all. Two is never a pass, which is why every
 # checkout below is load-bearing rather than convenience.
 #
-# ADDING THIS FILE IS NOT ENFORCEMENT, and the remaining step is deliberately not
-# done from here: `replay` must also be added to main's required_status_checks,
-# pinned to app 15368 (GitHub Actions), and only AFTER a run on this repo proves
-# the context reports — a required context that never posts blocks every merge
-# instead. Until that lands, security-orchestration's `enforcement` job reports
-# this repo as scoped but unenforced, which is the truth and not a bug.
+# ADDING THIS FILE WAS NOT ENFORCEMENT, AND THE REST HAS SINCE LANDED. `replay`
+# also had to be added to main's required_status_checks, pinned to app 15368
+# (GitHub Actions), and only AFTER a run on this repo proved the context reports
+# — a required context that never posts blocks every merge instead. That step is
+# done: `replay` is now one of main's required contexts, so this workflow does
+# block a merge here. The paragraph this replaces still said the opposite, and
+# said it for as long as the settings change went unrecorded: the same
+# documentation-overclaim class as #19, pointing the other way.
 
 name: signature-replay
 
