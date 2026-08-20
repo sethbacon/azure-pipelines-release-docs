@@ -87,6 +87,13 @@ updates:
   # npm (per task) — each task is an independent package with its own lockfile,
   # so `directory: /` covers none of them. Required by
   # scripts/check-dependabot-coverage.js (#25).
+  #
+  # Each carries the SAME typescript major hold as the root entry above. It was
+  # missing when these entries arrived with the tasks in #71, and the first
+  # weekly run proved why it is needed rather than tidy: the group offered
+  # typescript 7, which typescript-eslint 8 refuses
+  # (peer `>=4.8.4 <6.1.0`), so `npm ci` failed ERESOLVE and both task PRs were
+  # red on arrival.
   # ---------------------------------------------------------------------------
   - package-ecosystem: npm
     directory: /Tasks/Markdown2Html/Markdown2HtmlV1
@@ -96,6 +103,9 @@ updates:
       default-days: 7
     commit-message:
       prefix: deps
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       markdown2html-dependencies:
         patterns:
@@ -109,6 +119,9 @@ updates:
       default-days: 7
     commit-message:
       prefix: deps
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       publishkbarticle-dependencies:
         patterns:
