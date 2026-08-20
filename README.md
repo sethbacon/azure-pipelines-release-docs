@@ -32,6 +32,13 @@ concerns so each can be versioned, reviewed and trusted on its own terms.
   gate: no script reads `configs/`, so a dev override that set `public: true` would package a public
   listing and the check would still pass (#43). Treat the override files as convention until that
   closes.
+- Tasks live at `Tasks/<Family>/<TaskDirVn>/task.json` — exactly two directory levels. That layout is
+  the definition every script shares via `scripts/lib/task-dirs.js`, and
+  `scripts/check-package-composition.js` fails on anything under `Tasks/` that sits outside it.
+- The `.vsix` is composed by **allowlist**, not denylist. What may ship is enumerated in
+  `scripts/lib/package-contents.js`, and a file matching no rule is a build/CI failure that names it
+  rather than a file that silently ships or silently vanishes. See that file for the reasoning and
+  for what the allowlist costs when a task legitimately adds a new asset type.
 - Node 24 execution handler with a `Node20_1` fallback for agents lacking the Node 24 runner.
 - Shared primitives come from `@4cloudguru/pipeline-task-core` (platform-agnostic) and
   `@4cloudguru/pipeline-task-ado` (the half that may name Azure DevOps — input parsing, the agent
@@ -46,9 +53,20 @@ npm ci                    # root tooling (tfx, typescript)
 npm run deps              # per-task dependencies
 npm run compile
 npm run test:all
-npm run check:versions
-npm run check:docs-claims # documented claims vs. what the workflows do
+npm run check:versions    # task versions/GUIDs/name prefix, and version agreement
+                          # between azure-devops-extension.json and release-please
+npm run check:docs-claims # documented claims vs. what the workflows actually do
+npm run check:composition # what the .vsix would contain, and whether the manifest
+                          # promises anything that is not in it
+npm run test:composition  # mutation self-test: re-creates each defect the gates
+                          # above exist to catch and asserts they fail by name
 ```
+
+`check:versions`, `check:composition` and `test:composition` all run in the required
+`Check Version Consistency` CI job. `npm run build:release` runs `check:composition` before composing
+`./build`, and `scripts/copy-build.js` then refuses to compose a package containing a symlink, a
+secret-shaped file, a path outside a known task directory, or anything the allowlist does not cover —
+and asserts, over its own finished output, that every path the packaged manifest promises is present.
 
 Commits follow Conventional Commits; releases are cut by release-please.
 

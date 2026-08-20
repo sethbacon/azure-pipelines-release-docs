@@ -17,6 +17,14 @@ permissions:
   contents: read
 
 jobs:
+  # The package-composition gate lives in THIS job on purpose. There is no
+  # workflow that builds or publishes a .vsix (package:* and build:release exist
+  # in package.json and nothing in .github/ invokes them), so a composition check
+  # attached to a publish job would never run. And 'Check Version Consistency' is
+  # already a required status check on main, so adding steps here makes the new
+  # gate merge-blocking on the day it lands rather than on the day someone
+  # remembers to add a context to branch protection. Every step below is
+  # dependency-free node, which is why this job still needs no npm ci.
   manifest:
     name: Check Version Consistency
     runs-on: ubuntu-latest
@@ -30,7 +38,16 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
-      - run: node scripts/check-versions.js
+      - name: Version and manifest invariants
+        run: node scripts/check-versions.js
+      - name: Package composition
+        run: node scripts/check-package-composition.js
+      # Mutation self-test: re-creates each defect the gates exist to catch and
+      # asserts the gate exits non-zero AND names the cause. A gate that has
+      # quietly stopped detecting anything looks exactly like a clean tree, so
+      # this runs beside it on every PR rather than once at review time.
+      - name: Composition gates detect what they claim to
+        run: node scripts/test-package-composition.js
 
   build:
     name: Build and Test (${{ matrix.os }})
