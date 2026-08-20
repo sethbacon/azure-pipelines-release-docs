@@ -12,7 +12,7 @@
   "scopes": [
     "vso.build"
   ],
-  "description": "Release engineering and documentation publishing tasks for Azure Pipelines: changelog generation, Markdown to HTML conversion, and ServiceNow knowledge base publishing.",
+  "description": "Scaffold — no tasks are published yet. Planned: changelog generation, Markdown to HTML conversion, and ServiceNow knowledge base publishing for Azure Pipelines.",
   "public": false,
   "categories": [
     "Azure Pipelines"

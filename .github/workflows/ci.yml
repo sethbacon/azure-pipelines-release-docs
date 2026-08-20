@@ -102,3 +102,36 @@ jobs:
         with:
           persist-credentials: false
       - uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+
+  # A job of its own rather than another step on `manifest`. Steps bolted onto
+  # `manifest` inherit its already-required status check and so block a merge on
+  # the day they land, which is the stronger property — but that context is named
+  # "Check Version Consistency", and a documentation gate reporting a failure
+  # under that name is the same kind of inaccuracy this job exists to catch (the
+  # name is already a poor fit for what the job does: #44). So: an honestly named
+  # context, and one repository-settings change to make it blocking — add
+  # "Check Documented Claims" to main's required status checks. Until that is
+  # done this job reports on every pull request without blocking one.
+  #
+  # Documents are the only thing this repository currently ships, and the one
+  # class of defect it has already had is a document asserting a control that
+  # does not exist: SECURITY.md claimed a signed, SBOM-attested package behind an
+  # approval gate when no workflow did any of the three. README.md was corrected
+  # for the same drift months earlier and SECURITY.md was not, because nothing
+  # compared either of them to the workflows. This job does.
+  docs-claims:
+    name: Check Documented Claims
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # No install step: the script uses node builtins and `git check-ignore`
+      # only, so it runs before and independently of any dependency tree.
+      - run: node scripts/check-docs-claims.js
