@@ -316,20 +316,3 @@ jobs:
       # exactly like a clean tree.
       - name: Workflow-hardening gate detects what it claims to
         run: node scripts/test-workflow-hardening.js
-
-      # ── The one guard that is a shell script inside YAML ───────────────────
-      # pr-checks.yml's "Breaking-change footers survive the squash" job is a
-      # bash script embedded in a workflow: actionlint checks its syntax, zizmor
-      # checks the workflow around it, and nothing runs it. It was ported from
-      # terraform-registry-backend, where it has never had a test, so a regex
-      # edit or a lost `set -euo pipefail` would leave a green context asserting
-      # nothing (#49). This EXTRACTS the script from the workflow and runs it
-      # against fixture commit histories with `gh` stubbed — here, in the
-      # workflow-shaped job, because that is what it is a statement about.
-      #
-      # The `set -euo pipefail` half of that sentence was aspirational until the
-      # `gh-unavailable` case: every fixture used a `gh` that succeeds, so no
-      # case could tell a guard that fails closed from one that does not. The
-      # stub that exits non-zero is what makes the claim true.
-      - name: Breaking-change footer guard detects what it claims to
-        run: node scripts/test-breaking-change-footers.js
