@@ -4,6 +4,12 @@ coverage/
 *.tsbuildinfo
 *.vsix
 
+# Release-pipeline outputs, produced at the repo root by .github/workflows/release.yml
+# and attached to the GitHub Release. Ignored so a local reproduction of that
+# pipeline cannot leave a generated artifact staged.
+*.vsix.bundle
+sbom-*.cdx.json
+
 # Personal publisher override — never commit
 configs/self.json
 
