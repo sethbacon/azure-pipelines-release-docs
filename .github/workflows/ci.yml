@@ -103,6 +103,15 @@ jobs:
         with:
           node-version: 24
       - run: npm ci --ignore-scripts
+      # Before `npm run deps`, deliberately. This is the only self-test in the
+      # repository that runs on BOTH matrix legs, because the property it proves
+      # is platform-specific: for-each-task.js spawns npm, `Tasks/` is empty, so
+      # that spawn has been called zero times on either leg and the
+      # windows-2025 context has been green over a code path it never executed
+      # (#45). It executes the real npm() against the real npm, so a resolution
+      # order that is wrong for a Windows runner fails on the pull request that
+      # writes it rather than on the day the first task lands.
+      - run: npm run test:task-runner
       - run: npm run deps
       - run: npm run compile
       - run: npm run test:all
@@ -129,6 +138,14 @@ jobs:
       # runs before any install and cannot be defeated by one.
       - name: The audited tree is not empty
         run: node scripts/check-audit-scope.js
+      # Auditing a tree and updating it are two controls with the same scope
+      # problem, so they are checked in the same required job. Dependabot's npm
+      # updater reads only the directories .github/dependabot.yml names, and
+      # `directory: /` stops at the root package.json; a task's lockfile would
+      # be watched by nothing on the day it lands (#25). Also dependency-free,
+      # and mutation-proved by scripts/test-gates.js in the manifest job.
+      - name: Every task's lockfile is enumerated for updates
+        run: node scripts/check-dependabot-coverage.js
       - run: npm ci --ignore-scripts
       # No --omit=dev. package.json declares no `dependencies`, so --omit=dev
       # audited an empty tree while this context reported green on main (#20).
@@ -299,3 +316,15 @@ jobs:
       # exactly like a clean tree.
       - name: Workflow-hardening gate detects what it claims to
         run: node scripts/test-workflow-hardening.js
+
+      # ── The one guard that is a shell script inside YAML ───────────────────
+      # pr-checks.yml's "Breaking-change footers survive the squash" job is a
+      # bash script embedded in a workflow: actionlint checks its syntax, zizmor
+      # checks the workflow around it, and nothing runs it. It was ported from
+      # terraform-registry-backend, where it has never had a test, so a regex
+      # edit or a lost `set -euo pipefail` would leave a green context asserting
+      # nothing (#49). This EXTRACTS the script from the workflow and runs it
+      # against fixture commit histories with `gh` stubbed — here, in the
+      # workflow-shaped job, because that is what it is a statement about.
+      - name: Breaking-change footer guard detects what it claims to
+        run: node scripts/test-breaking-change-footers.js

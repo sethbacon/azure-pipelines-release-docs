@@ -7,6 +7,14 @@ version: 2
 # exist there; Dependabot resolves a missing secret to an empty string rather
 # than failing, so that misconfiguration would have degraded silently.
 
+# COVERAGE IS GATED. scripts/check-dependabot-coverage.js runs in CI's required
+# "Dependency audit" job and fails the build if a directory holding a task.json
+# has no npm entry here, or if an npm entry names a directory that does not
+# exist or holds no package.json. Tasks are independent npm packages with their
+# own lockfiles and `directory: /` covers none of them, so on the day the first
+# task lands this file has to grow an entry for it -- and CI says so on that
+# pull request rather than leaving it to be remembered (#25).
+
 updates:
   - package-ecosystem: github-actions
     directory: /

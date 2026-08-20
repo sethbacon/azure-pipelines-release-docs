@@ -33,6 +33,18 @@
 //      per-task install in scripts/for-each-task.js, carries
 //      `--ignore-scripts`. `npm ci` runs dependency `preinstall`/`install`/
 //      `postinstall`/`prepare` by default (#21).
+//
+//      And scripts/for-each-task.js runs npm as `node <npm-cli.js>` rather than
+//      spawning a platform wrapper. `execFileSync` cannot launch a `.cmd` or
+//      `.bat` at all, so the win32 half of a `process.platform === 'win32' ?
+//      'npm.cmd' : 'npm'` ternary is a branch that throws — and `Tasks/` being
+//      empty is the only reason the windows-2025 matrix leg has never found out
+//      (#45). The repair that suggests itself is worse than the defect: node
+//      runtime-deprecated passing `args` alongside `shell` for exactly this
+//      shape (DEP0190), because the args array is then neither escaped nor
+//      quoted, which turns a repository directory name into cmd.exe input. So
+//      both directions are checked — no wrapper literal, and the spawn is
+//      `process.execPath` with no `shell:`.
 //   3. TIMEOUTS. Every job declares `timeout-minutes`. Without one, a hung or
 //      deliberately-stalled job holds the runner — and whatever credential it
 //      minted — for the platform default of six hours (#22). A job that is a
@@ -335,6 +347,51 @@ if (!fs.existsSync(forEachTask)) {
         "ACTIONS.ci runs the per-task `npm ci` without --ignore-scripts. The root install is hardened and this one is " +
           'not, which is where third-party task dependencies actually live — and `npm run build:release` copies each ' +
           'task directory into the packaged .vsix afterwards (#21)',
+      )
+    }
+  }
+
+  // ── The same file must not spawn a platform command wrapper (#45) ─────────
+  // Read with whole-line `//` comments removed, for the same reason the
+  // workflow scan skips `#` lines: this file documents the defect it no longer
+  // has, and a gate that fired on the explanation would make writing one a
+  // build failure.
+  const code = source
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join('\n')
+
+  const wrapper = /(['"])[^'"\n]*\.(?:cmd|bat)\1/.exec(code)
+  if (wrapper) {
+    fail(
+      'install',
+      'scripts/for-each-task.js',
+      `spawns a platform command wrapper (${wrapper[0]}). \`execFileSync\` cannot launch a .cmd or .bat — node's own ` +
+        'child_process documentation says they "cannot be launched using child_process.execFile()" — so this is a call ' +
+        'that throws EINVAL on the windows-2025 leg the moment a task exists to run it against. Run npm as ' +
+        '`node <npm-cli.js>` instead (#45)',
+    )
+  }
+
+  const npmFn = /function npm\s*\([^)]*\)\s*\{[\s\S]*?\n\}/.exec(code)
+  if (!npmFn) {
+    fail('install', 'scripts/for-each-task.js', 'defines no `npm(` helper — this gate cannot tell how the per-task npm is spawned (#45)')
+  } else {
+    if (!/execFileSync\(\s*process\.execPath/.test(npmFn[0])) {
+      fail(
+        'install',
+        'scripts/for-each-task.js',
+        'the `npm(` helper does not spawn `process.execPath`. Running npm as `node <npm-cli.js>` is what removes the ' +
+          '.cmd wrapper, the PATH lookup and the shell in one, and makes the POSIX and Windows paths identical (#45)',
+      )
+    }
+    if (/\bshell\s*:/.test(npmFn[0])) {
+      fail(
+        'install',
+        'scripts/for-each-task.js',
+        'the `npm(` helper passes a `shell:` option. Node runtime-deprecated passing `args` alongside `shell` for this ' +
+          'exact shape (DEP0190) because the args array is then neither escaped nor quoted — which is argument ' +
+          'injection through a repository directory name, the BatBadBut class (#45)',
       )
     }
   }

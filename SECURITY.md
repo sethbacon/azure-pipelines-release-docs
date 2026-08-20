@@ -75,6 +75,7 @@ staying still would have been the same drift pointing the other way.
 | `publish-environment-approval` | enforced | The `publish-marketplace` job declares `environment: marketplace`, so the publish stops at that environment's protection rules. The `guard` job re-verifies, fail-closed, that the environment still has a required reviewer and a deployment branch/ref policy before anything is built. |
 | `vsix-signature` | enforced | `sbom-and-sign` signs the `.vsix` with keyless cosign and attaches a build-provenance attestation. Both the draft release and the publish re-run `cosign verify-blob` against this repository's own workflow identity first, so the bytes published are provably the bytes signed. |
 | `workflow-hardening` | enforced | `scripts/check-workflow-hardening.js` runs in CI's **Lint GitHub Actions** job and fails the build if any `uses:` is not pinned to a full commit SHA with a version comment, any npm install runs without `--ignore-scripts`, any job declares no `timeout-minutes`, or any job's egress policy is `audit` without a recorded reason on the step. Every one of those four was true of this tree and enforced by nothing (#21, #22, #23, #30). `scripts/test-workflow-hardening.js` breaks each property in a fixture and asserts the gate names it. |
+| `dependency-scan` | enforced | `.github/workflows/weekly-security.yml` runs OSV-Scanner over the tree every Monday and on demand, covering advisories the npm registry's own database does not carry, and re-runs the whole of CI as a drift canary for the weeks when nothing merges. One limitation is load-bearing and is stated rather than inherited: `google/osv-scanner-action` is a **Docker action on a mutable image tag**, so the full-SHA pin fixes its `action.yml` and not the scanner image `ghcr.io/google/osv-scanner-action:v2.5.0` that action runs. Accepted, with reasoning and date, under [Residual risks](#residual-risks). |
 | `sbom-attestation` | enforced | `sbom-and-sign` generates a CycloneDX SBOM of the extension's production closure and attests it to the `.vsix`. `@cyclonedx/cyclonedx-npm` is a devDependency again, and this time a workflow invokes it. With no tasks yet the SBOM has no third-party components, which is the truth about a `.vsix` that bundles none; `scripts/check-release-readiness.js` fails the release the day a task lands without an SBOM of its own, so that emptiness cannot outlive the empty tree. |
 
 <!-- controls:end -->
@@ -91,12 +92,32 @@ every pull request to `main`, and all of them are configured as required status 
 - **Check Documented Claims** — `scripts/check-docs-claims.js`. The control table above, and every
   repo-relative path these documents name.
 - **Lint GitHub Actions** — actionlint, plus `scripts/check-workflow-hardening.js`: full-SHA action
-  pinning, `--ignore-scripts` on every install, a `timeout-minutes` on every job, and an egress
+  pinning, `--ignore-scripts` on every install, a `timeout-minutes` on every job, an egress
   policy that is either `block` with an endpoint allowlist or `audit` with the reason written on the
-  step. Both carry mutation self-tests that run beside them on every pull request.
-- **Build and Test** (ubuntu and windows), **Dependency audit**, **Scan Workflows (zizmor)**,
-  **Analyze (javascript-typescript)** (CodeQL), and **replay**, the estate's structural signature
-  gate.
+  step, and that `scripts/for-each-task.js` runs npm as `node <npm-cli.js>` rather than spawning a
+  `.cmd` wrapper or a shell (#45). Both carry mutation self-tests that run beside them on every pull
+  request, and so does the one guard in this repository that is a shell script embedded in YAML:
+  `scripts/test-breaking-change-footers.js` extracts the breaking-change counter out of
+  `pr-checks.yml` and runs it against fixture commit histories.
+- **Dependency audit** — `npm audit` over the root lockfile and `npm run audit:all` over each task's,
+  with `scripts/check-audit-scope.js` refusing a run that would inspect an empty tree (#20, #54) and
+  `scripts/check-dependabot-coverage.js` refusing a task directory whose lockfile no
+  `.github/dependabot.yml` entry watches — or an entry watching a directory that does not exist
+  (#25). Both are dependency-free and run before any install.
+- **Build and Test** (ubuntu and windows) — the per-task install, compile and test path, and
+  `scripts/test-for-each-task.js`, the only self-test here that runs on both matrix legs, because the
+  property it proves is platform-specific: it executes the real per-task npm spawn against the real
+  npm, so the windows-2025 context stops reporting green over a code path it has never run (#45).
+- **Scan Workflows (zizmor)**, **Analyze (javascript-typescript)** (CodeQL), **Dependency review**,
+  **PR title convention**, and **replay**, the estate's structural signature gate.
+
+Two jobs in `pr-checks.yml` report on every pull request without blocking one, because adding a
+required context is a repository-settings change and this file does not make those. Both are about
+the same thing — what release-please reads out of the commit a merge creates — and both should be
+promoted together: **Breaking-change footers survive the squash** (this repository squash-merges with
+`COMMIT_MESSAGES`, and release-please keeps only the *first* `BREAKING CHANGE:` footer of a commit,
+so a pull request declaring two ships one of them silently: #49) and **release-please can read the
+merged commit**.
 
 Two properties of those jobs are worth stating because they are not visible from the list. The two
 jobs that hold a **stored** GitHub App private key — `release-please` and signature-replay's
@@ -156,6 +177,18 @@ Recorded here as they are accepted, with the reasoning and the decision date.
   build an allowlist from, and a guessed one fails a first release after a human has approved the
   environment gate. Each of its seven jobs carries the reason on the step; derive the lists from the
   first real run's harden-runner summaries and flip them then.
+- **OSV-Scanner runs as a Docker action on a mutable image tag** (2026-08-19, #58). The `uses:` in
+  `.github/workflows/weekly-security.yml` is pinned to a full commit SHA, and what that SHA pins is
+  the action's `action.yml`, whose entire substance is
+  `image: "docker://ghcr.io/google/osv-scanner-action:v2.5.0"` — a tag on a registry this repository
+  does not control and cannot re-point. Whoever can push that tag replaces the code that runs in that
+  job, and neither the pin, nor Dependabot, nor this repository's own full-SHA gate would report it;
+  `sethbacon/azure-pipelines-packer#261` moved this action 2.3.8 → 2.5.0 with none of that said
+  anywhere. The fix is to stop using the action and run the scanner from a checksum-verified release
+  download, the way the `actionlint` step in `ci.yml` already does, and it is not made here because
+  #58 asked for the family's layer rather than a divergent one. What bounds it meanwhile: the job is
+  scheduled rather than merge-blocking, holds no stored credential, runs on `contents: read`, and
+  reads a tree with no production dependencies.
 - **The redacted replay report is still published from a public repository** (2026-08-19, #24).
   `scripts/redact-replay-report.js` strips every site list from both the artifact and the job log
   before either is published, leaving the per-signature evidence (which repositories it ran in, what
