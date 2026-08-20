@@ -192,7 +192,7 @@ Recorded here as they are accepted, with the reasoning and the decision date.
   scheduled rather than merge-blocking, holds no stored credential, runs on `contents: read`, and
   reads a tree with no production dependencies.
 - **The redacted replay report is still published from a public repository** (2026-08-19, #24).
-  `scripts/redact-replay-report.js` strips every site list from both the artifact and the job log
+  `security-orchestration`'s `remediation/replay/redact-replay-report.js` strips every site list from both the artifact and the job log
   before either is published, leaving the per-signature evidence (which repositories it ran in, what
   it skipped, and the counts) that a green required check needs to be worth anything. What remains
   public is that evidence plus the ledger's issue numbers and titles, all of which point at public
