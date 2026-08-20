@@ -282,6 +282,11 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+          # Nothing here asks for a cache, but setup-node turns one on by itself
+          # once package.json declares a packageManager -- silently, in the jobs
+          # that build and sign the published .vsix. Stated so it cannot arrive
+          # as a side effect of an unrelated edit.
+          package-manager-cache: false
       - name: Install root dependencies
         run: npm ci --ignore-scripts
       - name: Build release
@@ -312,6 +317,11 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+          # Nothing here asks for a cache, but setup-node turns one on by itself
+          # once package.json declares a packageManager -- silently, in the jobs
+          # that build and sign the published .vsix. Stated so it cannot arrive
+          # as a side effect of an unrelated edit.
+          package-manager-cache: false
       - name: Install root dependencies
         run: npm ci --ignore-scripts
       - name: Download build artifact
@@ -356,6 +366,11 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+          # Nothing here asks for a cache, but setup-node turns one on by itself
+          # once package.json declares a packageManager -- silently, in the jobs
+          # that build and sign the published .vsix. Stated so it cannot arrive
+          # as a side effect of an unrelated edit.
+          package-manager-cache: false
       # --ignore-scripts: this job holds id-token/attestations:write. tfx-cli and
       # @cyclonedx/cyclonedx-npm are pure JS and need no lifecycle scripts to
       # run; skipping them denies a compromised transitive dependency (a routine
@@ -454,17 +469,30 @@ jobs:
             --certificate-identity-regexp '^https://github\.com/sethbacon/azure-pipelines-release-docs/\.github/workflows/release\.yml@refs/(tags/v[0-9]+\.[0-9]+\.[0-9]+|heads/main)$' \
             --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
             "$VSIX_FILE"
-      - name: Create the draft GitHub Release
+      # release-please already created this tag's Release as a draft, with the
+      # CHANGELOG as its body (.release-please-config.json sets draft +
+      # force-tag-creation). Only the artifacts are missing, so upload into it.
+      # The action this replaced passed generate_release_notes, which asks GitHub
+      # to synthesise notes over the top of that curated body.
+      - name: Attach the signed artifacts to the draft Release
         id: create_release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
-        with:
-          files: |
-            *.vsix
-            sbom-*.cdx.json
-            *.vsix.bundle
-          generate_release_notes: true
-          tag_name: ${{ needs.guard.outputs.tag }}
-          draft: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.guard.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" --json id >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --title "$TAG" --notes "Artifacts for ${TAG}."
+          fi
+          # ./ on each glob: a file whose name begins with a dash would otherwise
+          # be read by gh as an option (shellcheck SC2035).
+          gh release upload "$TAG" ./*.vsix ./sbom-*.cdx.json ./*.vsix.bundle --clobber
+          # The list endpoint is the one that returns drafts; releases/tags/<tag>
+          # does not, and undraft needs this id.
+          id=$(gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate \
+                 --jq ".[] | select(.tag_name == \"${TAG}\") | .id" | head -n1)
+          [ -n "$id" ] || { echo "no release found for ${TAG}" >&2; exit 1; }
+          echo "id=${id}" >> "$GITHUB_OUTPUT"
 
   publish-marketplace:
     name: Publish to the VS Marketplace
@@ -495,6 +523,11 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+          # Nothing here asks for a cache, but setup-node turns one on by itself
+          # once package.json declares a packageManager -- silently, in the jobs
+          # that build and sign the published .vsix. Stated so it cannot arrive
+          # as a side effect of an unrelated edit.
+          package-manager-cache: false
       # --ignore-scripts: this job holds id-token:write for the Entra federated
       # credential. tfx-cli is pure JS and needs no lifecycle scripts; skipping
       # them denies a compromised transitive dependency code execution alongside

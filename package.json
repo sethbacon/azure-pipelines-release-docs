@@ -35,7 +35,6 @@
     "test:gates": "node scripts/test-gates.js",
     "test:task-runner": "node scripts/test-for-each-task.js",
     "test:workflow-hardening": "node scripts/test-workflow-hardening.js",
-    "test:breaking-change-footers": "node scripts/test-breaking-change-footers.js",
     "test:release-readiness": "node scripts/test-release-readiness.js",
     "test:publish": "node scripts/test-publish-marketplace.js"
   },

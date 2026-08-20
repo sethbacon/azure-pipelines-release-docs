@@ -97,7 +97,7 @@ every pull request to `main`, and all of them are configured as required status 
   step, and that `scripts/for-each-task.js` runs npm as `node <npm-cli.js>` rather than spawning a
   `.cmd` wrapper or a shell (#45). Both carry mutation self-tests that run beside them on every pull
   request, and so does the one guard in this repository that is a shell script embedded in YAML:
-  `scripts/test-breaking-change-footers.js` extracts the breaking-change counter out of
+  `4cloudguru/shared-workflows' tests/test-breaking-change-footers.js` extracts the breaking-change counter out of
   `pr-checks.yml` and runs it against fixture commit histories — including one served by a `gh`
   that exits non-zero, so the counter is proved to fail closed on a commit list it cannot read
   rather than report zero declarations and go green.
@@ -198,3 +198,15 @@ Recorded here as they are accepted, with the reasoning and the decision date.
   public is that evidence plus the ledger's issue numbers and titles, all of which point at public
   repositories. Retention is bounded at seven days. Restricting who may download it is not an
   option: Actions artifacts inherit repository read access and there is no per-artifact ACL.
+
+## Shared CI workflows
+
+Part of this repository's CI is **defined in another repository** — [`4cloudguru/shared-workflows`](https://github.com/4cloudguru/shared-workflows) — and called from `.github/workflows/`. That is a real supply-chain relationship, and it is recorded here so an audit of this repository does not stop at this repository's own tree.
+
+**What runs, and where it is pinned.** Each caller in `.github/workflows/` names the shared workflow on its `uses:` line, pinned to a full 40-hex commit SHA with a trailing comment naming the release that SHA is. The tag is a label; the SHA is what runs. An unlabelled SHA is rejected by the workflow-hardening gate, because a bare 40-hex ref cannot be reviewed or updated deliberately.
+
+**Why the pins have to agree across repositories.** A shared definition drifts differently from a duplicated file: every repository looks like it is using "the shared one" while sitting on different commits, which is *harder* to see than divergent files, not easier. A signature in `security-orchestration` (`shared-workflow-pin-parity`) reports **disagreement** between callers of the same shared workflow — it reports disagreement rather than staleness, because a repository deliberately held back is a decision while N repositories disagreeing without anyone deciding is drift.
+
+**What the shared repository is itself protected by.** Its `main` requires its own zizmor and actionlint checks with `enforce_admins` enabled, restricts which third-party actions may run to an explicit allowlist, issues a read-only default `GITHUB_TOKEN`, and runs the workflow-hardening gate against itself.
+
+**What this repository still controls.** Triggers, concurrency, and the secrets it passes. Secrets are passed **by name** — never `secrets: inherit`, which would forward every secret in this repository to a workflow owned by someone else. Any `vars.*` a shared workflow reads resolve against **this** repository, so credentials and their installation scope do not move.
