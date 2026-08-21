@@ -99,7 +99,7 @@ function makeCleanTree(name) {
   )
   fs.writeFileSync(
     path.join(dir, 'task-universe.json'),
-    `${JSON.stringify({ expect: 'present', minTasks: 1, why: 'Fixture tree for the composition mutation self-test: exactly one canonical task.' }, null, 2)}\n`,
+    `${JSON.stringify({ expect: 'present', minTasks: 1, why: 'Fixture tree for the composition mutation self-test: exactly one canonical task.', namePrefix: 'Pipeline' }, null, 2)}\n`,
   )
   fs.mkdirSync(path.join(dir, 'configs'), { recursive: true })
   fs.writeFileSync(
