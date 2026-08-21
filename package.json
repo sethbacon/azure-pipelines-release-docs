@@ -27,6 +27,8 @@
     "check:versions": "node scripts/check-versions.js",
     "check:docs-claims": "node scripts/check-docs-claims.js",
     "check:composition": "node scripts/check-package-composition.js",
+    "check:shared": "node scripts/check-shared-modules.js",
+    "sync:shared": "node scripts/check-shared-modules.js --fix",
     "check:audit-scope": "node scripts/check-audit-scope.js",
     "check:dependabot": "node scripts/check-dependabot-coverage.js",
     "check:workflow-hardening": "node scripts/check-workflow-hardening.js",
