@@ -17,7 +17,7 @@
 // -------------------------
 //   1. Every DYNAMIC-destination network sink (a download/fetch whose URL is not
 //      a constant host) must sit in a function that routes the host through
-//      `assertEgressHostAllowed` ΓÇö the single helper that applies the allowlist
+//      `assertEgressHostAllowed` — the single helper that applies the allowlist
 //      OR the numeric private/reserved + DNS check, identically for the initial
 //      URL and for every redirect hop.
 //   2. A site that authorizes with the raw primitives (`isPrivateOrLinkLocalHost`
@@ -64,7 +64,7 @@ const SINKS = [
 // An operator-DECLARED endpoint: the pipeline author typed this base URL into a
 // task input, so the destination host is their own choice, and fetchWithTimeout's
 // default redirect policy keeps every hop on that same host. Reported, not failed
-// ΓÇö blocking it would break the air-gapped/private registry the allowlist inputs
+// — blocking it would break the air-gapped/private registry the allowlist inputs
 // exist to support. A destination chosen by anyone else (a response field, a
 // redirect Location, an opaque parameter) is NOT covered by this and does fail.
 const OPERATOR_DECLARED = /^\$\{(registryUrl|mirrorBaseUrl|mirrorUrl|baseUrl)\}/;
@@ -131,8 +131,8 @@ function topLevelFunctions(source) {
 
 /**
  * Returns a copy of `source` with every comment and string/template literal
- * blanked out (offsets preserved), so a sink NAME appearing in prose ΓÇö e.g. the
- * comment "fetchJson() guards against a non-JSON body" ΓÇö is never scanned as a
+ * blanked out (offsets preserved), so a sink NAME appearing in prose — e.g. the
+ * comment "fetchJson() guards against a non-JSON body" — is never scanned as a
  * call. Argument text is still read from the original source.
  */
 function maskCommentsAndStrings(source) {
@@ -229,7 +229,7 @@ function isConstantHost(expr) {
 
 const files = walk(ROOT);
 if (files.length === 0) {
-    console.error(`FAIL: no **/src/**/*.ts files found under ${ROOT} ΓÇö the signature would pass vacuously.`);
+    console.error(`FAIL: no **/src/**/*.ts files found under ${ROOT} — the signature would pass vacuously.`);
     process.exit(1);
 }
 
@@ -342,7 +342,7 @@ if (JSON_OUTPUT) {
     process.exit(failures > 0 ? 1 : 0);
 }
 
-console.log(`egress-authorization signature ΓÇö ${path.basename(ROOT)} (${files.length} src file(s), ${unique.length} sink(s))\n`);
+console.log(`egress-authorization signature — ${path.basename(ROOT)} (${files.length} src file(s), ${unique.length} sink(s))\n`);
 for (const verdict of order) {
     const rows = unique.filter(f => f.verdict === verdict).sort((a, b) => a.rel.localeCompare(b.rel) || a.line - b.line);
     if (rows.length === 0) continue;
@@ -358,7 +358,7 @@ if (suspects.length) {
 
 if (failures > 0) {
     console.error(`FAIL: ${failures} residual instance(s) of the egress-authorization class.`);
-    console.error(`      Route the destination host through ${AUTHORIZER}() ΓÇö the same call for the initial URL and for every redirect hop.`);
+    console.error(`      Route the destination host through ${AUTHORIZER}() — the same call for the initial URL and for every redirect hop.`);
     process.exit(1);
 }
 console.log('OK: every dynamic-destination egress site is authorized through assertEgressHostAllowed.');

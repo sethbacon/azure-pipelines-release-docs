@@ -141,7 +141,7 @@ function record(check, site, ok, detail) {
 
 const tasks = discoverTaskDirs(repoRoot);
 if (tasks.length === 0) {
-    console.error(`FAIL: no task directories found under ${path.join(repoRoot, 'Tasks')} ΓÇö the signature would trivially pass over an empty universe.`);
+    console.error(`FAIL: no task directories found under ${path.join(repoRoot, 'Tasks')} — the signature would trivially pass over an empty universe.`);
     process.exit(1);
 }
 
@@ -341,7 +341,7 @@ for (const [check, rows] of byCheck) {
         }
         if (exemption) {
             usedExemptions.add(key);
-            console.log(`  EXEMPT ${row.site}: ${row.detail} ΓÇö exempted: ${exemption}`);
+            console.log(`  EXEMPT ${row.site}: ${row.detail} — exempted: ${exemption}`);
             continue;
         }
         console.error(`  FAIL ${row.site}: ${row.detail}`);

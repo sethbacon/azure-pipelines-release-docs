@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Auto-bumps each task's task.json Minor for every task whose src/ changed since
-// the previous release without a Minor increase ΓÇö the manual step in CLAUDE.md's
+// the previous release without a Minor increase — the manual step in CLAUDE.md's
 // Release Process, automated. ADO agents cache tasks by Major.Minor, so a code
 // (especially security) fix that ships without a Minor bump would reach the
 // Marketplace but never running agents. Run on the release-please Release PR by
@@ -12,8 +12,8 @@
 // Reuses check-minor-bumps.js's analysis so the "which tasks need a bump" rule
 // lives in exactly one place. The bump is idempotent: the analysis compares each
 // task's CURRENT (working-tree) Minor against the previous release's, so a task
-// already bumped since prevRef ΓÇö whether by an earlier feature PR (the documented
-// double-increment protection) or by a previous run of this script ΓÇö is reported
+// already bumped since prevRef — whether by an earlier feature PR (the documented
+// double-increment protection) or by a previous run of this script — is reported
 // as OK and left alone. Exits 0 whether or not anything needed bumping; a second
 // run makes no further change.
 
@@ -23,7 +23,7 @@ const { resolvePrevRef, analyze } = require('./check-minor-bumps.js');
 
 // Resolve task.json paths against the current working directory (the repo root
 // the CLI/workflow is invoked from), mirroring how check-minor-bumps.js's git
-// calls operate on the cwd ΓÇö so the self-test can point both at a throwaway repo.
+// calls operate on the cwd — so the self-test can point both at a throwaway repo.
 const repoRoot = process.cwd();
 
 function taskJsonPath(task) {
@@ -39,7 +39,7 @@ function readWorkingTreeMinor(task) {
 // the "version" object so no other "Minor" key can be hit. The [^{}] runs cannot
 // cross an object boundary. Capture groups: (1) everything up to and including
 // "Minor":, (2) an optional opening quote, (3) the digits, (4) an optional
-// closing quote ΓÇö so a function replacer can bump (3) while preserving the file's
+// closing quote — so a function replacer can bump (3) while preserving the file's
 // existing quoting (string vs bare number) and every other byte.
 const MINOR_RE = /("version"\s*:\s*\{[^{}]*?"Major"\s*:\s*"?\d+"?[^{}]*?"Minor"\s*:\s*)("?)(\d+)("?)/;
 

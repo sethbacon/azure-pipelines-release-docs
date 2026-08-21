@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Table-driven self-test for scripts/check-enforced-disciplines.js ΓÇö the
+// Table-driven self-test for scripts/check-enforced-disciplines.js — the
 // signature for the "documented-but-unenforced discipline" defect class.
 //
 // The whole point of that signature is to make a rule fail loudly instead of
 // depending on someone remembering it, so a signature that cannot itself be
 // SEEN failing is the same defect one level up. Every row below builds a
 // throwaway repo, violates exactly ONE discipline, and asserts the signature
-// exits non-zero naming that site ΓÇö and the baseline row asserts a fully
+// exits non-zero naming that site — and the baseline row asserts a fully
 // compliant repo exits 0, so the rows are not passing because the script fails
 // on everything.
 //

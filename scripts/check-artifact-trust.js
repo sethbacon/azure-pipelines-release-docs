@@ -15,7 +15,7 @@
 //   ACQUIRE       a function that pulls an artifact off the network. Must reach
 //                 a verifier (or be a pure wrapper whose caller verifies).
 //   VERIFY        a function that checks a downloaded artifact's hash/signature.
-//                 A failed check must DISCARD the artifact (#204) ΓÇö a
+//                 A failed check must DISCARD the artifact (#204) — a
 //                 checksum-mismatched (i.e. possibly tampered) file must not be
 //                 left on a persistent agent's disk.
 //   SUMS-ABSENT   the branch that handles "the source published no checksum
@@ -24,7 +24,7 @@
 //                 must honour the require-signature toggle too, or the toggle is
 //                 inert exactly where it matters most (#65). A function with no
 //                 signature call has a sha256-only trust root (OPA,
-//                 terraform-docs) ΓÇö that difference is legitimate and is
+//                 terraform-docs) — that difference is legitimate and is
 //                 reported as an EXEMPT verdict, never flattened.
 //   CACHE-ADMIT   a function that admits a tool from the agent's tool cache. It
 //                 must re-verify on a hit, and must only record a cache
@@ -44,7 +44,7 @@
 // **/src/**/*.ts, splitting each file into top-level functions, and following an
 // in-file call graph. A newly added download strategy is enumerated automatically.
 //
-// Repo-agnostic ΓÇö runs unchanged in azure-pipelines-terraform and
+// Repo-agnostic — runs unchanged in azure-pipelines-terraform and
 // azure-pipelines-packer:
 //
 //     node scripts/check-artifact-trust.js [repoRoot] [--json]
@@ -243,7 +243,7 @@ function blockAfter(fnText, index) {
 
 const files = walk(ROOT);
 if (files.length === 0) {
-    console.error(`FAIL: no **/src/**/*.ts files found under ${ROOT} ΓÇö the signature would pass vacuously.`);
+    console.error(`FAIL: no **/src/**/*.ts files found under ${ROOT} — the signature would pass vacuously.`);
     process.exit(1);
 }
 
@@ -274,7 +274,7 @@ for (const file of files) {
     /**
      * A pure download WRAPPER: it calls a primitive with a URL that is one of its
      * own parameters, so the verification decision belongs to whoever calls it.
-     * Discovered, not listed ΓÇö a new wrapper is picked up automatically, and its
+     * Discovered, not listed — a new wrapper is picked up automatically, and its
      * callers are then enumerated as ACQUIRE sites in their own right.
      */
     const acquireWrappers = new Set(fns.filter((fn) =>
@@ -313,7 +313,7 @@ for (const file of files) {
                     add('VERIFY', fn, 'DISCARDS-ON-FAILURE', `${DISCARD_GUARD}() wraps ${call.v}`, fn.start + call.index);
                 } else {
                     add('VERIFY', fn, 'RETAINS-ON-FAILURE',
-                        `${call.v} is not wrapped in ${DISCARD_GUARD}() ΓÇö a failed check leaves the artifact on disk (#204)`,
+                        `${call.v} is not wrapped in ${DISCARD_GUARD}() — a failed check leaves the artifact on disk (#204)`,
                         fn.start + call.index);
                 }
             }
@@ -328,7 +328,7 @@ for (const file of files) {
                     add('DISCARD', fn, 'REPORTS-DISCARD', `${DISCARD_GUARD}() is passed the discardLog sink`, fn.start + start);
                 } else {
                     add('DISCARD', fn, 'SILENT-DISCARD',
-                        `${DISCARD_GUARD}() is called without the discardLog sink ΓÇö the artifact is deleted with no record of it (#204)`,
+                        `${DISCARD_GUARD}() is called without the discardLog sink — the artifact is deleted with no record of it (#204)`,
                         fn.start + start);
                 }
             }
@@ -343,7 +343,7 @@ for (const file of files) {
             const verifiesHere = VERIFIERS.some((v) => callIndices(fn.text, v).length > 0);
             if (verifiesHere) {
                 // The toggle governing SIGNATURE verification is whatever this
-                // function passes as the `required` argument of its signature check ΓÇö
+                // function passes as the `required` argument of its signature check —
                 // read off the call, never hardcoded, so a rename cannot blind this.
                 const signatureCall = SIGNATURE_VERIFIERS.flatMap((v) => callIndices(fn.text, v))[0];
                 const signatureToggle = signatureCall
@@ -363,7 +363,7 @@ for (const file of files) {
                             fn.start + m.index);
                     } else {
                         add('SUMS-ABSENT', fn, 'SIGNATURE-TOGGLE-INERT',
-                            `a signature-rooted source published no checksum file and this branch never reads ${signatureToggle} ΓÇö the toggle is inert exactly where verification is missing (#65)`,
+                            `a signature-rooted source published no checksum file and this branch never reads ${signatureToggle} — the toggle is inert exactly where verification is missing (#65)`,
                             fn.start + m.index);
                     }
                 }
@@ -453,7 +453,7 @@ for (const file of files) {
             const catchBlocks = [...fn.text.matchAll(/catch\s*(?:\([^)]*\))?\s*\{/g)]
                 .map((m) => blockAfter(fn.text, m.index));
             // A catch that RETURNS a version instead of rethrowing is a stale
-            // fallback, whatever it returns ΓÇö a pinned constant, a literal, or a
+            // fallback, whatever it returns — a pinned constant, a literal, or a
             // cached value. Only rethrowing counts as failing closed.
             const fallsBack = catchBlocks.some((b) => /\breturn\b/.test(b) && !/\bthrow\b/.test(b));
             add('LATEST', fn, fallsBack ? 'STALE-FALLBACK' : 'FAILS-CLOSED',
@@ -493,7 +493,7 @@ if (JSON_OUTPUT) {
     process.exit(failures.length > 0 ? 1 : 0);
 }
 
-console.log(`artifact-trust signature ΓÇö ${path.basename(ROOT)} (${files.length} src file(s), ${unique.length} trust site(s))\n`);
+console.log(`artifact-trust signature — ${path.basename(ROOT)} (${files.length} src file(s), ${unique.length} trust site(s))\n`);
 for (const kind of ['ACQUIRE', 'VERIFY', 'DISCARD', 'SUMS-ABSENT', 'CACHE-ADMIT', 'RECORD-READ', 'RECORD-WRITE', 'LATEST']) {
     const rows = unique.filter((s) => s.kind === kind);
     if (rows.length === 0) continue;
