@@ -30,14 +30,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # Only the release-please Release PR, and only when it lives in this repo
-    # (never a fork ΓÇö a fork PR has no access to the App key, and we must not
+    # (never a fork — a fork PR has no access to the App key, and we must not
     # push back to a fork's branch). release-please names its branch
     # 'release-please--branches--main' etc.
     if: >-
       github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name &&
       startsWith(github.event.pull_request.head.ref, 'release-please--')
     steps:
-      # hardening-exception: egress-audit ΓÇö this job clones this repository;
+      # hardening-exception: egress-audit — this job clones this repository;
       #   harden-runner has never run in this repository, so no endpoint baseline
       #   exists and a block policy written without one fails closed on its first run;
       #   audit is what produces that list
@@ -53,12 +53,12 @@ jobs:
           private-key: ${{ secrets.RELEASE_DISPATCH_APP_KEY }}
           # Minted from the same App as release-please.yml. Pushing the bump
           # commit with an App token (rather than the workflow's GITHUB_TOKEN)
-          # is what makes the push RE-TRIGGER the PR's required checks ΓÇö a push
+          # is what makes the push RE-TRIGGER the PR's required checks — a push
           # authenticated by GITHUB_TOKEN would not, leaving the checks stale.
           permission-contents: write
 
       # Check out the PR HEAD branch itself (NOT the pull_request merge ref) with
-      # persist-credentials: false ΓÇö this workflow commits back to that branch, so
+      # persist-credentials: false — this workflow commits back to that branch, so
       # it must be on it, and the push below supplies the App token explicitly
       # rather than persisting it into .git/config. fetch-depth: 0 + fetch-tags so
       # the bump analysis can find the newest v*.*.* tag (the previous release).
@@ -73,8 +73,8 @@ jobs:
       # contents:write App token (see the Get GitHub App token step above).
       # Running it straight from this PR's own head ref would let any
       # same-repo collaborator who can open a branch named release-please--*
-      # (the only gate on the job's `if:` above) smuggle a modified script ΓÇö
-      # or a modified scripts/lib/*.js helper it requires ΓÇö into this
+      # (the only gate on the job's `if:` above) smuggle a modified script —
+      # or a modified scripts/lib/*.js helper it requires — into this
       # privileged execution (issue #754). Reset scripts/ to the trusted base
       # branch immediately before executing anything in it; release-please
       # PRs never touch scripts/ under normal operation, so this is a no-op
@@ -89,7 +89,7 @@ jobs:
           BUMP_TOKEN: ${{ steps.token.outputs.token }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           REPO: ${{ github.repository }}
-        # No ${{ }} interpolation inside this run block ΓÇö every input arrives via
+        # No ${{ }} interpolation inside this run block — every input arrives via
         # env: indirection (actionlint + zizmor both scan this file). The bump
         # script is idempotent: if the branch already carries the bumps (e.g. this
         # workflow ran on a previous synchronize), `git diff --quiet` is clean and
@@ -97,7 +97,7 @@ jobs:
         # Our own push does re-trigger `synchronize`, but that second run is a
         # no-op for exactly this reason. release-please force-pushes its branch
         # whenever a new commit lands on main, wiping this bump commit; this
-        # workflow re-runs on that synchronize and re-applies it ΓÇö self-healing.
+        # workflow re-runs on that synchronize and re-applies it — self-healing.
         run: |
           node scripts/bump-minor-versions.js
           if git diff --quiet; then

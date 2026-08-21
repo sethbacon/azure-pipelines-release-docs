@@ -30,7 +30,7 @@
 //      must supply an `agent`, which is how this codebase injects its
 //      CONNECT-tunnelling ProxyTunnelAgent. When that call has been delegated to
 //      a shared package (`httpsRequest`), the site is still checked HERE, on the
-//      `agent` it passes and the package version the task declares ΓÇö a delegated
+//      `agent` it passes and the package version the task declares — a delegated
 //      call that leaves the inventory is how this gate goes green by seeing
 //      nothing.
 //   3. Recognised exemptions, each verified against the code they name, are
@@ -85,7 +85,7 @@ const DELEGATED_FETCH_SINKS = ['createHttpClient'];
  * apply.
  *
  * A site that cannot be shape-checked must still be checked, or it silently
- * leaves the inventory and the gate passes by seeing nothing ΓÇö the exact
+ * leaves the inventory and the gate passes by seeing nothing — the exact
  * failure this file exists to prevent, and one this repo has now hit twice
  * (#949, and again on the move to the ado package). What is verifiable here is
  * PROVENANCE: that the task depends on a version of the package known to carry
@@ -117,7 +117,7 @@ const PROXY_AGENT_BUILDERS = ['buildProxyAgent', 'createProxyTunnelAgent'];
 /**
  * The raw-https counterpart of DELEGATED_FETCH_SINKS. `httpsRequest` owns the
  * real `https.request()` on this repo's behalf, so the call left this tree and
- * the NODE_HTTP_SINKS rule below can no longer see it ΓÇö six sites disappeared
+ * the NODE_HTTP_SINKS rule below can no longer see it — six sites disappeared
  * from the inventory the day the transport moved, and the gate would have gone
  * green by looking at nothing. That is the third time this repo has hit that
  * shape (#949, the ado-package move, and this one), so the site is kept in the
@@ -126,7 +126,7 @@ const PROXY_AGENT_BUILDERS = ['buildProxyAgent', 'createProxyTunnelAgent'];
  * owning task depends on a version of the package known to carry the wiring.
  *
  * `node:https` honours no proxy setting unless handed an `agent`, so a call
- * without one is not a weaker proxy ΓÇö it is no proxy at all.
+ * without one is not a weaker proxy — it is no proxy at all.
  */
 const DELEGATED_NODE_HTTP_SINKS = {
     httpsRequest: { pkg: '@4cloudguru/pipeline-task-core', min: '0.6.0' },
@@ -174,7 +174,7 @@ function satisfiesFloor(range, min) {
     return true;
 }
 
-/** The lockfile of the task that owns `file` ΓÇö what `npm ci` actually installs. */
+/** The lockfile of the task that owns `file` — what `npm ci` actually installs. */
 function lockfileFor(file) {
     let dir = path.dirname(path.resolve(file));
     const stop = path.resolve(__dirname, '..');
@@ -230,7 +230,7 @@ function packageDelegationVerdict(file, { pkg, min, carries }) {
     }
     if (copies.length !== 1) {
         const seen = copies.map((c) => `${c.version} at ${c.path}`).join(', ') || 'none';
-        return { ok: false, why: `${pkg}@${declared} delegates onward to ${carries.pkg}, which resolves to ${copies.length} copies (${seen}) ΓÇö the delegated call runs whichever one is nested, not the one this task imports` };
+        return { ok: false, why: `${pkg}@${declared} delegates onward to ${carries.pkg}, which resolves to ${copies.length} copies (${seen}) — the delegated call runs whichever one is nested, not the one this task imports` };
     }
     if (!satisfiesFloor(copies[0].version, carries.min)) {
         return { ok: false, why: `${pkg}@${declared} delegates onward to ${carries.pkg}@${copies[0].version}, below the ${carries.min} floor` };
@@ -409,7 +409,7 @@ function proxyTransportRange(source) {
 
 const files = walk(ROOT);
 if (files.length === 0) {
-    console.error(`FAIL: no **/src/**/*.ts files found under ${ROOT} ΓÇö the signature would pass vacuously.`);
+    console.error(`FAIL: no **/src/**/*.ts files found under ${ROOT} — the signature would pass vacuously.`);
     process.exit(1);
 }
 
@@ -530,7 +530,7 @@ for (const file of files) {
 
 // A signature that finds nothing is indistinguishable from a broken signature.
 if (sites.length === 0) {
-    console.error(`FAIL: no outbound HTTP call sites found under ${ROOT} ΓÇö the signature would pass vacuously.`);
+    console.error(`FAIL: no outbound HTTP call sites found under ${ROOT} — the signature would pass vacuously.`);
     process.exit(1);
 }
 

@@ -23,9 +23,9 @@ const { execFileSync } = require('child_process');
 const { discoverTaskDirs } = require('./lib/task-dirs.js');
 
 // The task list is DERIVED from the Tasks/*/*/task.json directory scan (see
-// scripts/lib/task-dirs.js) relative to the current working directory ΓÇö mirroring
+// scripts/lib/task-dirs.js) relative to the current working directory — mirroring
 // how the git calls below operate on the cwd, so the self-tests can point both at
-// a throwaway repo ΓÇö rather than hand-maintained here (issue #502).
+// a throwaway repo — rather than hand-maintained here (issue #502).
 function getTaskDirs() {
   return discoverTaskDirs(process.cwd());
 }
@@ -69,11 +69,11 @@ function resolvePrevRef(currRef) {
 
 // Classify every task by whether its src/ changed between prevRef and currRef and
 // whether its Minor increased. Returns one result object per task, in TASKS order:
-//   { task, kind: 'unchanged' }                              ΓÇö src did not change
-//   { task, kind: 'ok',         prevMinor, currMinor }       ΓÇö src changed, Minor bumped
-//   { task, kind: 'needs-bump', prevMinor, currMinor }       ΓÇö src changed, Minor NOT bumped
-//   { task, kind: 'diff-error', message }                    ΓÇö the diff itself failed
-//   { task, kind: 'version-error', message }                 ΓÇö task.json version unreadable
+//   { task, kind: 'unchanged' }                              — src did not change
+//   { task, kind: 'ok',         prevMinor, currMinor }       — src changed, Minor bumped
+//   { task, kind: 'needs-bump', prevMinor, currMinor }       — src changed, Minor NOT bumped
+//   { task, kind: 'diff-error', message }                    — the diff itself failed
+//   { task, kind: 'version-error', message }                 — task.json version unreadable
 // `readCurrMinor(task)` supplies the "current" Minor to compare against prevRef's
 // (default: the Minor committed at currRef). bump-minor-versions.js overrides it
 // to read the working-tree Minor so its bump is idempotent.
@@ -149,7 +149,7 @@ function main() {
   if (failed) {
     console.error(
       '\ncheck-minor-bumps: FAILED. Every task whose src/ changed since the last release ' +
-      'must have its Minor bumped ΓÇö ADO agents cache tasks by Major.Minor. See CLAUDE.md > Release Process.',
+      'must have its Minor bumped — ADO agents cache tasks by Major.Minor. See CLAUDE.md > Release Process.',
     );
     process.exit(1);
   }
