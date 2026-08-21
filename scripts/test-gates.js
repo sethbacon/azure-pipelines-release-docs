@@ -97,6 +97,7 @@ function makeCleanTree(name, { tasks = ['Alpha', 'Beta'] } = {}) {
     expect: tasks.length > 0 ? 'present' : 'absent',
     minTasks: tasks.length,
     why: 'Fixture tree for the gate mutation self-test — the declared count is exactly what this fixture builds.',
+    namePrefix: 'Pipeline',
   })
   writeJson(path.join(dir, 'configs', 'dev.json'), { id: `${EXTENSION_ID}-dev`, publisher: PUBLISHER, public: false })
   writeJson(path.join(dir, 'configs', 'release.json'), { id: EXTENSION_ID, publisher: PUBLISHER, public: true, galleryFlags: ['Public'] })
@@ -472,7 +473,10 @@ try {
     (dir) => editJson(dir, 'azure-devops-extension.json', (m) => {
       m.id = 'renamed-extension'
     }),
-    ["does not match .release-please-config.json's"],
+    // Caught by the override coordinates rather than by .release-please-config.json's
+    // package-name: the two coincide here and differ by design in the sibling
+    // extensions, so the manifest's own id is the anchor the shared gate can use.
+    ['configs/release.json: id', 'different listing'],
   )
 
   console.log('mutations — audit scope (#20, #54):')
