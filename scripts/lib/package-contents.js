@@ -120,6 +120,7 @@ const DROP_PATTERNS = [
   { re: /(^|\/)\.gitignore$/, why: 'VCS config' },
   { re: /(^|\/)\.gitattributes$/, why: 'VCS config' },
   { re: /(^|\/)\.nycrc[^/]*$/, why: 'coverage config' },
+  { re: /(^|\/)osv-scanner\.toml$/, why: 'vulnerability-scanner config — CI input, not runtime' },
 ]
 
 // Secret-shaped. A hit is an error wherever it would be COMPOSED, and the fix
