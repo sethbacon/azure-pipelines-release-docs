@@ -91,6 +91,8 @@ jobs:
         run: node scripts/test-check-enforced-disciplines.js
       - name: Outbound proxy parity (packer #196 class signature)
         run: node scripts/check-proxy-parity.js
+      - name: Shared-module parity (byte-identity across both tasks)
+        run: node scripts/check-shared-modules.js
 
   build:
     name: Build and Test (${{ matrix.os }})
