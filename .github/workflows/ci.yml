@@ -77,6 +77,20 @@ jobs:
         run: node scripts/test-package-composition.js
       - name: Version, universe, publish-identity and audit-scope gates detect what they claim to
         run: node scripts/test-gates.js
+      # The class signatures, run here as well as by security-orchestration's
+      # replay, so this repository and the replay cannot answer differently about
+      # the same code. They arrived with the tasks and were wired into nothing:
+      # the replay skips this repo while its kind is `ado-extension-scaffold`, so
+      # until now they ran NOWHERE. Same four the sibling extensions run in CI;
+      # check-artifact-trust and auth-parity-matrix are replay-only there too.
+      - name: Egress authorization (SSRF class signature)
+        run: node scripts/check-egress-authorization.js
+      - name: Enforced disciplines (documented-but-unenforced class signature)
+        run: node scripts/check-enforced-disciplines.js
+      - name: Self-test check-enforced-disciplines.js
+        run: node scripts/test-check-enforced-disciplines.js
+      - name: Outbound proxy parity (packer #196 class signature)
+        run: node scripts/check-proxy-parity.js
 
   build:
     name: Build and Test (${{ matrix.os }})
