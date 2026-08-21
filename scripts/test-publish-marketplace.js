@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Table-driven self-test for scripts/publish-marketplace.js.
 //
-// PROVENANCE. Ported from the sibling extensions
-// sethbacon/azure-pipelines-terraform and sethbacon/azure-pipelines-packer,
-// which carry identical copies, alongside the script it tests.
+// BYTE-IDENTICAL across sethbacon/azure-pipelines-terraform,
+// sethbacon/azure-pipelines-packer and sethbacon/azure-pipelines-release-docs,
+// alongside the script it tests.
 //
 // A retry wrapper nobody has watched fail is not a guard, so every row below
 // drives the REAL script against a fake `tfx` that records how it was invoked

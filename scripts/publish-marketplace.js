@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 // Publishes the packaged .vsix to the VS Marketplace via tfx-cli.
 //
-// PROVENANCE. Ported byte-for-byte (below this header) from
-// `scripts/publish-marketplace.js` in the sibling extensions
-// sethbacon/azure-pipelines-terraform and sethbacon/azure-pipelines-packer,
-// which carry identical copies. It is copied rather than rewritten on purpose:
-// this estate already acquired three hand-copies of one HTTP client and an
-// egress fix that reached only some of them, and the two disciplines below were
-// each learned from a real failure in a sibling. Only this header differs, and
-// only to make the issue references resolve — a bare `#109` in THIS repository
-// points at a different issue.
+// BYTE-IDENTICAL across sethbacon/azure-pipelines-terraform,
+// sethbacon/azure-pipelines-packer and sethbacon/azure-pipelines-release-docs.
+// All three publish the same kind of artefact the same way, with a token minted
+// from the same service principal, so a fix here belongs in all three: edit one
+// copy and propagate the same bytes rather than repairing only the one that
+// failed. This estate already acquired three hand-copies of one HTTP client and
+// an egress fix that reached only some of them, and both disciplines below were
+// each learned from a real failure in one extension. Issue references are fully
+// qualified for the same reason — a bare `#109` resolves to a different issue
+// in each repository.
 //
 // Two release-pipeline disciplines that were previously only comments in
 // release.yml, enforced here by construction:
