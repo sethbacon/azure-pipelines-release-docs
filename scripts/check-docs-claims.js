@@ -149,8 +149,10 @@ const CONTROLS = {
     // change, and a detector that looked for `--ignore-scripts` or a SHA would
     // go green on a tree where the gate had been deleted and the flags simply
     // happened to still be there — which is the exact state this control
-    // replaced (#21, #22, #23, #30).
-    detect: () => inWorkflows(/check-workflow-hardening\.js/),
+    // replaced (#21, #22, #23, #30). The gate is now the shared definition
+    // rather than a local script, so the workflow that calls it is what proves
+    // it runs.
+    detect: () => inWorkflows(/workflow-hardening\.yml/),
   },
   'dependency-scan': {
     summary: 'a workflow runs a dependency vulnerability scan beyond the npm registry\'s own advisory database',

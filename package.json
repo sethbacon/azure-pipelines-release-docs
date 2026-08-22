@@ -31,12 +31,10 @@
     "sync:shared": "node scripts/check-shared-modules.js --fix",
     "check:audit-scope": "node scripts/check-audit-scope.js",
     "check:dependabot": "node scripts/check-dependabot-coverage.js",
-    "check:workflow-hardening": "node scripts/check-workflow-hardening.js",
     "check:release-readiness": "node scripts/check-release-readiness.js",
     "test:composition": "node scripts/test-package-composition.js",
     "test:gates": "node scripts/test-gates.js",
     "test:task-runner": "node scripts/test-for-each-task.js",
-    "test:workflow-hardening": "node scripts/test-workflow-hardening.js",
     "test:release-readiness": "node scripts/test-release-readiness.js",
     "test:publish": "node scripts/test-publish-marketplace.js"
   },
