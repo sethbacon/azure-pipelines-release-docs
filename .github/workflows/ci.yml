@@ -176,71 +176,27 @@ jobs:
       # thing that ever audits them (#54). It enumerates zero today and says so.
       - run: npm run audit:all
 
-  zizmor:
-    name: Scan Workflows (zizmor)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+  # Both linters, and the durable record of what they find, come from the shared
+  # definition rather than being maintained here. The local pair did the same two
+  # passes for the same reason -- one call cannot both record and block -- but as
+  # a shape this repository had to keep correct on its own while two sibling
+  # extensions kept their own.
+  workflow-security:
+    name: Workflow Security
+    uses: 4cloudguru/shared-workflows/.github/workflows/workflow-security.yml@9276df8e0bdb3152e2529ab98c8b99cfb9e22d4b # v1.13.0
+
+  # The recording half is a SEPARATE workflow because a job requesting
+  # security-events: write is validated when the run is created, before `if:` is
+  # evaluated -- so an opt-in flag inside the other file would fail every caller
+  # that does not grant it, at startup, producing no jobs at all. The permission
+  # is granted here because this is the only place it can be.
+  workflow-security-record:
+    name: Workflow Security Record
     permissions:
-      actions: read
       contents: read
       security-events: write
-    steps:
-      # hardening-exception: egress-audit — the action fetches its own release
-      # binary and uploads SARIF to the code-scanning API; both destinations are
-      # upstream's to change and not this file's to enumerate. No stored credential
-      # is present in this job (#23).
-      - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
-        with:
-          egress-policy: audit
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      # TWO passes, deliberately, because one call cannot do both jobs.
-      # `advanced-security: true` (the default) makes the action run zizmor with
-      # --format=sarif, and in that mode zizmor EXITS 0 whatever it finds -- the
-      # results are meant to be triaged in the security tab. This job was green
-      # for exactly that reason while carrying four error-severity findings, and
-      # the comment here used to claim the filters made everything fail the job.
-      # They do not; they only select what is reported.
-      #
-      # So: the first pass records findings durably (dismissible, with a reason
-      # that survives); the second re-runs in github format, where zizmor's own
-      # exit code stands, so a new finding blocks the merge.
-      # .github/zizmor.yml carries the policy -- every `uses:` must be hash-pinned
-      # -- and the two documented, line-scoped exceptions.
-      # No min-severity/min-confidence: zizmor reports everything by default, and
-      # it now warns that the `unknown` this used to pass "is a deprecated minimum
-      # severity that has no effect" which "future versions will reject" -- a
-      # no-op today and a broken required check on the next major.
-      - name: Record findings in the security tab
-        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
-        with:
-          persona: regular
-          online-audits: true
-      - name: Fail on any finding
-        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
-        with:
-          advanced-security: false
-          annotations: true
-          persona: regular
-          online-audits: true
+    uses: 4cloudguru/shared-workflows/.github/workflows/workflow-security-record.yml@9276df8e0bdb3152e2529ab98c8b99cfb9e22d4b # v1.13.0
 
-  # A job of its own rather than another step on `manifest`. Steps bolted onto
-  # `manifest` inherit its already-required status check and so block a merge on
-  # the day they land, which is the stronger property — but that context is named
-  # "Check Version Consistency", and a documentation gate reporting a failure
-  # under that name is the same kind of inaccuracy this job exists to catch (the
-  # name is already a poor fit for what the job does: #44). So: an honestly named
-  # context, and one repository-settings change to make it blocking — add
-  # "Check Documented Claims" to main's required status checks. Until that is
-  # done this job reports on every pull request without blocking one.
-  #
-  # Documents are the only thing this repository currently ships, and the one
-  # class of defect it has already had is a document asserting a control that
-  # does not exist: SECURITY.md claimed a signed, SBOM-attested package behind an
-  # approval gate when no workflow did any of the three. README.md was corrected
-  # for the same drift months earlier and SECURITY.md was not, because nothing
-  # compared either of them to the workflows. This job does.
   docs-claims:
     name: Check Documented Claims
     runs-on: ubuntu-latest
@@ -273,80 +229,3 @@ jobs:
   # request without blocking one. It is deliberately not a step on `manifest`:
   # a workflow-syntax failure reported under the context name "Check Version
   # Consistency" is the same misdirection #44 filed against that job.
-  actionlint:
-    name: Lint GitHub Actions
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      # hardening-exception: egress-audit — this job downloads one pinned release
-      # asset and verifies it against a committed SHA256 before extracting, which is
-      # an integrity control rather than an egress one; it holds no stored
-      # credential (#23).
-      - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
-        with:
-          egress-policy: audit
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install actionlint
-        shell: bash
-        # The release asset is downloaded directly and verified against
-        # actionlint's own published SHA256 before extraction, rather than the
-        # convenience install script, which pipes curl straight into tar with no
-        # integrity check. Same version and checksum as the sibling extension's
-        # required `Lint GitHub Actions` job. Checksum from
-        # https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_checksums.txt
-        # (linux_amd64, matching this job's ubuntu-latest runner).
-        run: |
-          set -euo pipefail
-          curl -sSfLO https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
-          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  actionlint_1.7.12_linux_amd64.tar.gz" | sha256sum -c -
-          tar xzf actionlint_1.7.12_linux_amd64.tar.gz actionlint
-      - name: Run actionlint
-        run: ./actionlint -color
-      # Same contract as the node gates' self-tests: prove the linter still
-      # rejects something before believing its green. The fixture lives outside
-      # the repository so the run above never sees it, and it carries a defect
-      # zizmor does not look for — an unknown runner label.
-      - name: actionlint detects a broken workflow
-        shell: bash
-        run: |
-          set -euo pipefail
-          work="$(mktemp -d)"
-          mkdir -p "$work/.github/workflows"
-          cat > "$work/.github/workflows/broken.yml" <<'YAML'
-          name: broken
-          on: push
-          jobs:
-            broken:
-              runs-on: ubunut-latest
-              steps:
-                - run: echo hello
-          YAML
-          if ./actionlint -no-color "$work/.github/workflows/broken.yml"; then
-            echo "actionlint accepted a workflow it should have rejected — this gate proves nothing"
-            exit 1
-          fi
-          echo "actionlint rejected the broken fixture, as a working linter must"
-
-      # ── The hardening properties actionlint and zizmor do not check ────────
-      # Four findings landed on the same day saying the same thing about this
-      # tree: full-SHA pinning (#30), harden-runner coverage (#22), a non-audit
-      # egress policy (#23) and `--ignore-scripts` on every install (#21) were
-      # all true and all unenforced. This gate is where they stop being
-      # conventions. It lives HERE rather than on `manifest` because it is a
-      # statement about workflows, and a workflow failure reported under the
-      # context name "Check Version Consistency" is the misdirection #44 filed
-      # against that job. "Lint GitHub Actions" is already a required context,
-      # so the gate blocks a merge on the day it lands.
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-      - name: Workflow hardening invariants
-        run: node scripts/check-workflow-hardening.js
-      # Same contract as every other gate in this repository: break the thing
-      # the gate protects and watch it fail BY NAME, beside the gate, on every
-      # pull request. A gate that has quietly stopped detecting anything looks
-      # exactly like a clean tree.
-      - name: Workflow-hardening gate detects what it claims to
-        run: node scripts/test-workflow-hardening.js
