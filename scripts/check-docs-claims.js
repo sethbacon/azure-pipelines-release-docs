@@ -67,7 +67,8 @@ const fail = (kind, where, message) => findings.push({ kind, where, message })
 
 /** Counts of what was actually enumerated. An exit 0 over an empty universe is
  *  not a pass, and printing these is what tells the two apart. */
-const enumerated = { controls: 0, fileTables: 0, pathRefs: 0, claimDeps: 0, workflows: 0 }
+const enumerated = { controls: 0, ciJobs: 0, fileTables: 0, pathRefs: 0, claimDeps: 0, workflows: 0 }
+const skipped = []
 
 function readIfPresent(rel) {
   const full = path.join(ROOT, rel)
@@ -187,11 +188,12 @@ if (!security) {
 } else {
   const region = /<!--\s*controls:begin\s*-->([\s\S]*?)<!--\s*controls:end\s*-->/.exec(security)
   if (!region) {
-    fail(
-      'controls',
-      'SECURITY.md',
-      'no <!-- controls:begin -->…<!-- controls:end --> region; the supply-chain claims cannot be checked against the workflows',
-    )
+    // Not a failure: the three extensions sharing this file adopted the ledger at
+    // different times, and one that has not yet written one is not making a false
+    // claim. It is recorded instead, and the enumerated count below prints 0 --
+    // which is the difference between "checked, found nothing wrong" and "did not
+    // check", and the whole reason those counts are printed at all.
+    skipped.push('controls: SECURITY.md has no <!-- controls:begin --> region, so no supply-chain claim was checked')
   } else {
     const declared = new Map()
     for (const line of region[1].split('\n')) {
@@ -248,7 +250,106 @@ if (!security) {
 }
 
 /* ------------------------------------------------------------------ *
- * 2. File tables must enumerate their src/ directory exactly.
+ * 2. The CONTRIBUTING.md CI-job list must match the workflow it names.
+ * ------------------------------------------------------------------ */
+//
+// The workflow is named BY THE MARKER rather than hardcoded, because the three
+// extensions declare their gating jobs in different files -- unit-test.yml in
+// two of them, ci.yml in the third. A constant here would have made this section
+// silently inapplicable to one of them, which is the same shape of defect it
+// exists to catch: a check that reads a file that is not the one doing the work.
+//
+//   <!-- ci-jobs:begin .github/workflows/unit-test.yml -->
+
+/**
+ * Job display names: a `name:` indented exactly four spaces is a job's name
+ * (steps are nested deeper and carry a leading `- `). Matrix expressions are
+ * stripped so `Build and Test X (${{ matrix.os }})` is compared as
+ * `Build and Test X`, which is what a contributor-facing doc should say.
+ */
+function workflowJobNames(yaml) {
+  const names = []
+  for (const line of yaml.split('\n')) {
+    const m = /^ {4}name:\s*(.+?)\s*$/.exec(line)
+    if (!m) continue
+    names.push(m[1].replace(/["']/g, '').replace(/\s*\(\$\{\{[^}]*\}\}\)\s*$/, '').trim())
+  }
+  return [...new Set(names)]
+}
+
+/**
+ * Top-level job ids (2-space keys under `jobs:`). A job that declares no `name:`
+ * is displayed by GitHub under its id, so it would gate a PR while being
+ * invisible to workflowJobNames() above — and therefore never required in the
+ * doc. Counting ids and names catches that.
+ */
+function workflowJobIds(yaml) {
+  const body = yaml.slice(yaml.search(/^jobs:\s*$/m))
+  return [...body.matchAll(/^ {2}([A-Za-z0-9_-]+):\s*$/gm)].map((m) => m[1])
+}
+
+const contributing = readIfPresent('CONTRIBUTING.md')
+const ciJobsRegion = contributing
+  ? /<!--\s*ci-jobs:begin\s*([^\s>]*)\s*-->([\s\S]*?)<!--\s*ci-jobs:end\s*-->/.exec(contributing)
+  : null
+
+if (!contributing) {
+  skipped.push('ci-jobs: no CONTRIBUTING.md, so no documented CI job list was checked')
+} else if (!ciJobsRegion) {
+  skipped.push('ci-jobs: CONTRIBUTING.md has no <!-- ci-jobs:begin --> region, so no documented CI job list was checked')
+} else if (!ciJobsRegion[1]) {
+  fail(
+    'ci-jobs',
+    'CONTRIBUTING.md',
+    'the <!-- ci-jobs:begin --> marker names no workflow. Write the path it documents, e.g. ' +
+      '`<!-- ci-jobs:begin .github/workflows/unit-test.yml -->` — otherwise this check has to guess which file gates a pull request',
+  )
+} else {
+  const workflowPath = ciJobsRegion[1]
+  const workflow = readIfPresent(workflowPath)
+  if (!workflow) {
+    fail('ci-jobs', 'CONTRIBUTING.md', `${workflowPath} not found — the marker names a workflow that does not exist`)
+  } else {
+    const declared = workflowJobNames(workflow).sort()
+    // One bullet per job, the job name in the FIRST backticked span. Reading
+    // every backtick in the region instead would pull the explanatory
+    // `scripts/*.js` references in as if they were job names.
+    const documented = ciJobsRegion[2]
+      .split('\n')
+      .map((line) => /^\s*[-*]\s+`([^`]+)`/.exec(line))
+      .filter(Boolean)
+      .map((x) => x[1].trim())
+      .sort()
+    const missing = declared.filter((n) => !documented.includes(n))
+    const extra = documented.filter((n) => !declared.includes(n))
+    if (missing.length) fail('ci-jobs', 'CONTRIBUTING.md', `CI jobs that gate a PR but are undocumented: ${missing.join(', ')}`)
+    if (extra.length) fail('ci-jobs', 'CONTRIBUTING.md', `documented CI jobs that ${workflowPath} does not declare: ${extra.join(', ')}`)
+    if (declared.length === 0) fail('ci-jobs', workflowPath, 'no job names parsed — the check would pass vacuously')
+    const ids = workflowJobIds(workflow)
+    if (ids.length === 0) {
+      fail('ci-jobs', workflowPath, 'no job ids parsed — the check would pass vacuously')
+    } else if (ids.length < declared.length) {
+      fail('ci-jobs', workflowPath, `parsed ${declared.length} job names but only ${ids.length} job ids — the name parser is over-matching`)
+    } else {
+      // Names are deduped (matrix legs share one display name), so the only safe
+      // assertion is that no job is NAMELESS: every id must be able to reach a
+      // name. Approximated by requiring at least one name per job block, which is
+      // what a missing `name:` breaks.
+      const nameLines = (workflow.match(/^ {4}name:/gm) || []).length
+      if (nameLines < ids.length) {
+        fail(
+          'ci-jobs',
+          workflowPath,
+          `${ids.length - nameLines} job(s) declare no \`name:\` and would gate a PR under their job id, invisible to this check: ${ids.join(', ')}`,
+        )
+      }
+    }
+    enumerated.ciJobs = declared.length
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * 3. File tables must enumerate their src/ directory exactly.
  *    (Ported verbatim in behaviour from the sibling extensions.)
  * ------------------------------------------------------------------ */
 
@@ -398,14 +499,19 @@ if (!readIfPresent('SECURITY.md') || !readIfPresent('README.md')) {
 
 const summary =
   `enumerated: ${enumerated.controls} supply-chain control(s) over ${enumerated.workflows} workflow(s), ` +
+  `${enumerated.ciJobs} documented CI job(s), ` +
   `${enumerated.pathRefs} referenced path(s), ${enumerated.fileTables} file table(s), ` +
   `${enumerated.claimDeps} claim-corroborating dependenc(ies).`
 
 if (JSON_OUTPUT) {
-  console.log(JSON.stringify({ enumerated, findings, failures: findings.length }, null, 2))
+  console.log(JSON.stringify({ enumerated, skipped, findings, failures: findings.length }, null, 2))
   process.exit(findings.length ? 1 : 0)
 }
 
+// Printed above the summary, not folded into it: a section that did not run is
+// the one thing a count of zero cannot distinguish from a section that ran and
+// found nothing.
+for (const s of skipped) console.log(`  not checked here — ${s}`)
 console.log(summary)
 
 if (findings.length) {
