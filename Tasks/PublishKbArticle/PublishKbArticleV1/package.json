@@ -20,9 +20,9 @@
   "minimumAgentVersion": "3.232.1",
   "dependencies": {
     "@4cloudguru/pipeline-task-core": "^0.6.0",
-    "azure-pipelines-task-lib": "^5.2.10",
+    "azure-pipelines-task-lib": "^5.279.0",
     "cheerio": "^1.2.0",
-    "sanitize-html": "^2.17.6"
+    "sanitize-html": "^2.17.7"
   },
   "overrides": {
     "diff": "^8.0.3",
@@ -36,11 +36,11 @@
     "@types/node": "^24",
     "@types/sanitize-html": "^2.16.1",
     "eslint": "^9.0.0",
-    "mocha": "^11.2.0",
-    "nock": "^14.0.15",
+    "mocha": "^11.8.0",
+    "nock": "^14.0.17",
     "nyc": "^18.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.0",
-    "typescript-eslint": "^8.0.0"
+    "typescript-eslint": "^8.67.0"
   }
 }
