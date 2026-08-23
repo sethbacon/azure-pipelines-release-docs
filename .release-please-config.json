@@ -1,5 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "draft": true,
+  "force-tag-creation": true,
   "packages": {
     ".": {
       "release-type": "simple",
@@ -7,8 +9,6 @@
       "include-component-in-tag": false,
       "bump-minor-pre-major": true,
       "initial-version": "0.1.0",
-      "draft": true,
-      "force-tag-creation": true,
       "extra-files": [
         {
           "type": "json",

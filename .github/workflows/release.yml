@@ -56,13 +56,16 @@
 #     ~35s of waiting, which fits inside ten minutes with room to spare. That
 #     budget is not free to grow.
 #
-# WHAT THIS PIPELINE CANNOT DO YET, STATED RATHER THAN DISCOVERED. This
-# extension declares `"contributions": []`; `tfx extension create` refuses to
-# package a manifest with no contribution ("Your extension must define at least
-# one contribution or contribution type"). scripts/check-release-readiness.js in
-# `guard` says so by name in the first job. The publish path is therefore wired,
-# reviewed and inert: a tag pushed today fails in `guard` with that message, and
-# the first release becomes possible when the first task lands.
+# THE TASKS HAVE LANDED, SO THIS IS NO LONGER INERT. This header used to record
+# that the extension declared `"contributions": []` and that `tfx extension
+# create` refuses to package a manifest with no contribution, so a tag pushed
+# then would stop in `guard`. #71 brought both tasks in and the manifest now
+# declares two contributions, so that paragraph described a repository that no
+# longer exists. What it said would happen -- "the first release becomes
+# possible when the first task lands" -- is what this workflow is now expected
+# to do. Nothing here has run yet: no tag has ever existed (see
+# .release-please-config.json), so every release to date is a draft with no
+# assets. The first real run is the one that proves this path, not this comment.
 name: Release
 
 "on":
