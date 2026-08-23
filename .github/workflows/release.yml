@@ -381,14 +381,29 @@ jobs:
 
       # The extension-level SBOM: the production closure of the packaged
       # extension itself. It is generated with `--omit dev` deliberately, so it
-      # describes what SHIPS and not the build tooling — today that is an SBOM
-      # with the root component and no dependencies, which is the truth about a
-      # .vsix that bundles no third-party code. The siblings carry one of these
-      # per task on top of this one; scripts/check-release-readiness.js fails the
-      # release the day a task lands here without its own SBOM step, so an empty
-      # SBOM cannot outlive the empty tree that makes it honest.
+      # describes what SHIPS and not the build tooling. The per-task SBOMs below
+      # sit on top of it: the .vsix carries root-level content as well as the
+      # tasks, and scripts/check-release-readiness.js requires both shapes —
+      # every task named by an `--output-file`, and one SBOM that is not a task's.
       - name: Generate the extension SBOM
         run: npx --no-install cyclonedx-npm --output-file sbom-extension.cdx.json --omit dev
+
+      # One pair per task, the shape both sibling extensions carry. Each task is
+      # an independent npm package with its own lockfile, so the extension SBOM
+      # above does not describe it: without these, the two tasks' dependency
+      # closures ship undescribed while SECURITY.md claims `sbom-attestation:
+      # enforced` (#83). Installed with --omit=dev so the SBOM is the closure
+      # that ships, not the one that builds it.
+      - name: Generate the Markdown2HtmlV1 SBOM
+        run: |
+          cd Tasks/Markdown2Html/Markdown2HtmlV1
+          npm ci --omit=dev --ignore-scripts
+          npx --no-install cyclonedx-npm --output-file ../../../sbom-markdown2htmlv1.cdx.json --omit dev
+      - name: Generate the PublishKbArticleV1 SBOM
+        run: |
+          cd Tasks/PublishKbArticle/PublishKbArticleV1
+          npm ci --omit=dev --ignore-scripts
+          npx --no-install cyclonedx-npm --output-file ../../../sbom-publishkbarticlev1.cdx.json --omit dev
 
       - name: Download vsix artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -414,6 +429,19 @@ jobs:
         with:
           subject-path: "*.vsix"
           sbom-path: "sbom-extension.cdx.json"
+      # An SBOM generated and not attested travels with the release as an
+      # unsigned file rather than a verifiable claim about the .vsix, so the
+      # readiness gate requires the pair in both directions.
+      - name: Attest the Markdown2HtmlV1 SBOM for the .vsix
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: "*.vsix"
+          sbom-path: "sbom-markdown2htmlv1.cdx.json"
+      - name: Attest the PublishKbArticleV1 SBOM for the .vsix
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: "*.vsix"
+          sbom-path: "sbom-publishkbarticlev1.cdx.json"
 
       - name: Upload SBOM and signature artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
