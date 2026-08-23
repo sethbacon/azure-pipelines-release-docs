@@ -69,6 +69,12 @@ jobs:
         run: node scripts/check-versions.js
       - name: Package composition
         run: node scripts/check-package-composition.js
+      # Also run at release time, in release.yml's guard. Here as well because a
+      # precondition only checked at release time is discovered BY the release:
+      # the per-task SBOM gap of #83 arrived with the tasks in #71 and sat on a
+      # green main until a tag would have hit the guard.
+      - name: Release preconditions
+        run: node scripts/check-release-readiness.js
       # Mutation self-tests: each re-creates the defects the gates exist to catch
       # and asserts the gate exits non-zero AND names the cause. A gate that has
       # quietly stopped detecting anything looks exactly like a clean tree, so
