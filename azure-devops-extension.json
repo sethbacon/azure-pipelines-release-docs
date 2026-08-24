@@ -12,7 +12,7 @@
   "scopes": [
     "vso.build"
   ],
-  "description": "Markdown to HTML conversion and ServiceNow knowledge base publishing for Azure Pipelines. Changelog generation is planned.",
+  "description": "Conventional-commit changelog and release versioning, Markdown to HTML conversion, and ServiceNow knowledge base publishing for Azure Pipelines.",
   "public": false,
   "categories": [
     "Azure Pipelines"
@@ -43,6 +43,9 @@
   },
   "files": [
     {
+      "path": "Tasks/Changelog"
+    },
+    {
       "path": "Tasks/Markdown2Html"
     },
     {
@@ -54,6 +57,16 @@
     "uri": "https://github.com/sethbacon/azure-pipelines-release-docs"
   },
   "contributions": [
+    {
+      "id": "custom-changelog-task",
+      "type": "ms.vss-distributed-task.task",
+      "targets": [
+        "ms.vss-distributed-task.tasks"
+      ],
+      "properties": {
+        "name": "Tasks/Changelog/ChangelogV1"
+      }
+    },
     {
       "id": "custom-markdown2html-task",
       "type": "ms.vss-distributed-task.task",

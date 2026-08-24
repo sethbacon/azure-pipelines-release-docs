@@ -1,0 +1,161 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/azure-pipelines-task-lib/master/tasks.schema.json",
+  "id": "3f1b8c47-0d2e-4a6b-9c53-7e8a1d40b6f2",
+  "name": "PipelineChangelog",
+  "friendlyName": "Changelog and Release Version",
+  "description": "Derive the next semantic version from conventional commits, update CHANGELOG.md and version files, and open or update a release pull request",
+  "author": "sethbacon",
+  "helpMarkDown": "Parses conventional commits since the last release tag, computes the next version, prepends a release section to CHANGELOG.md, stamps version files, and opens or updates a release pull request. Authenticates as the pipeline's own identity via SystemVssConnection: the Build Service account needs **Contribute** and **Contribute to pull requests** on the target repository.",
+  "category": "Utility",
+  "visibility": [
+    "Build",
+    "Release"
+  ],
+  "demands": [],
+  "version": {
+    "Major": 1,
+    "Minor": 0,
+    "Patch": 0
+  },
+  "minimumAgentVersion": "4.265.1",
+  "instanceNameFormat": "Changelog and release version",
+  "inputs": [
+    {
+      "name": "workingDirectory",
+      "type": "filePath",
+      "label": "Working directory",
+      "required": false,
+      "helpMarkDown": "Repository root. Defaults to the agent's current directory."
+    },
+    {
+      "name": "changelogPath",
+      "type": "string",
+      "label": "Changelog path",
+      "defaultValue": "CHANGELOG.md",
+      "required": false,
+      "helpMarkDown": "Path to the changelog, relative to the working directory. Created with a Keep a Changelog header if absent."
+    },
+    {
+      "name": "tagPrefix",
+      "type": "string",
+      "label": "Tag prefix",
+      "defaultValue": "v",
+      "required": false,
+      "helpMarkDown": "Prefix on release tags, e.g. `v` for `v1.2.3`."
+    },
+    {
+      "name": "targetBranch",
+      "type": "string",
+      "label": "Target branch",
+      "defaultValue": "main",
+      "required": false,
+      "helpMarkDown": "Branch the release pull request targets."
+    },
+    {
+      "name": "capZeroMajor",
+      "type": "boolean",
+      "label": "Keep pre-1.0 releases pre-1.0",
+      "defaultValue": "true",
+      "required": false,
+      "helpMarkDown": "When the current major is 0, a breaking change bumps the MINOR (0.3.7 to 0.4.0) instead of reaching 1.0.0. Matches release-please's `bump-minor-pre-major`. Turn off for strict semver."
+    },
+    {
+      "name": "versionFiles",
+      "type": "multiLine",
+      "label": "Version files",
+      "required": false,
+      "helpMarkDown": "One `path#$.json.path` per line, e.g. `azure-devops-extension.json#$.version`. A bare path defaults to `$.version`. Fails if a listed path does not resolve."
+    },
+    {
+      "name": "commitLimit",
+      "type": "string",
+      "label": "Commit limit",
+      "defaultValue": "500",
+      "required": false,
+      "helpMarkDown": "Maximum commits read from history. Bounds memory on a repository that has never been tagged."
+    },
+    {
+      "name": "openPullRequest",
+      "type": "boolean",
+      "label": "Open or update the release pull request",
+      "defaultValue": "true",
+      "required": false,
+      "helpMarkDown": "When off, the task updates files and sets its output variables without calling the Azure DevOps REST API."
+    },
+    {
+      "name": "accessToken",
+      "type": "string",
+      "label": "Access token",
+      "required": false,
+      "helpMarkDown": "Overrides the job's own SystemVssConnection token. Only needed for cross-repository or cross-organisation publishing. Pass a secret variable, never a literal."
+    },
+    {
+      "name": "dryRun",
+      "type": "boolean",
+      "label": "Dry run",
+      "defaultValue": "false",
+      "required": false,
+      "helpMarkDown": "Compute and print the release without writing any file or calling the REST API."
+    }
+  ],
+  "outputVariables": [
+    {
+      "name": "releaseRequired",
+      "description": "`true` when the commits since the last tag justify a release."
+    },
+    {
+      "name": "nextVersion",
+      "description": "The computed next version, e.g. `1.4.0`."
+    },
+    {
+      "name": "previousVersion",
+      "description": "The version the last release tag carried."
+    },
+    {
+      "name": "bumpType",
+      "description": "`major`, `minor`, `patch` or `none`."
+    },
+    {
+      "name": "releasePullRequestId",
+      "description": "The id of the release pull request that was created or updated."
+    }
+  ],
+  "restrictions": {
+    "commands": {
+      "mode": "restricted"
+    },
+    "settableVariables": {
+      "allowed": [
+        "releaseRequired",
+        "nextVersion",
+        "previousVersion",
+        "bumpType",
+        "releasePullRequestId"
+      ]
+    }
+  },
+  "execution": {
+    "Node24": {
+      "target": "src/index.js"
+    },
+    "Node20_1": {
+      "target": "src/index.js"
+    }
+  },
+  "messages": {
+    "CommitsConsidered": "Read %s commit(s), of which %s parsed as conventional commits, since %s.",
+    "NothingToRelease": "No releasable change since the last tag: every commit was a silent type or unparseable.",
+    "VersionResolved": "Version %s -> %s (%s bump).",
+    "VersionFileMissing": "Version file %s does not exist; skipping it.",
+    "VersionFileUnstampable": "Version file %s has no value at %s, so the release would ship a manifest still claiming the previous version.",
+    "DryRunSummary": "Dry run: version %s, changelog %s, %s version file(s) would be stamped.",
+    "DryRunComplete": "Dry run complete for %s. No file was written and no pull request was opened.",
+    "FilesUpdated": "Updated the changelog and version files for %s.",
+    "AccessTokenUnavailable": "No access token is available. Enable 'Allow scripts to access the OAuth token' on the job, or supply the accessToken input.",
+    "PipelineContextMissing": "System.TeamFoundationCollectionUri, System.TeamProject and Build.Repository.ID must all be set; this task must run in an Azure Pipelines build.",
+    "AdoRequestFailed": "Azure DevOps request failed (%s): HTTP %s %s",
+    "AdoResponseUnparseable": "Azure DevOps returned a response for '%s' that is not JSON.",
+    "ReleasePrTitle": "chore(main): release %s",
+    "ReleasePrReady": "Release pull request for %s is ready: !%s"
+  }
+}

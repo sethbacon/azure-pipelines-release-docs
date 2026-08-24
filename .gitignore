@@ -11,6 +11,10 @@ Tasks/**/*.js
 .nyc_output/
 .taskkey
 
+# Entry-point scenarios build a throwaway git repository under here to drive the
+# real src/index.js. Ignored so a nested .git and its fixtures cannot be staged.
+Tasks/**/Tests/.scratch/
+
 # Release-pipeline outputs, produced at the repo root by .github/workflows/release.yml
 # and attached to the GitHub Release. Ignored so a local reproduction of that
 # pipeline cannot leave a generated artifact staged.
