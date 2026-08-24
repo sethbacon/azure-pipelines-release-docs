@@ -25,8 +25,14 @@ concerns so each can be versioned, reviewed and trusted on its own terms.
   `scripts/check-versions.js`. The tasks being migrated do not carry that prefix today, and a task
   GUID cannot be reused across two separately-published extensions — so this is a rename to a new name
   and a new id rather than an in-place move, and a pipeline referencing `Markdown2Html@1` keeps
-  resolving to the Terraform-hosted task until its YAML is edited. No deprecation window has been
-  decided yet (#55).
+  resolving to the Terraform-hosted task until its YAML is edited.
+- **The cutover window (#55).** The Terraform extension keeps shipping its `Markdown2Html` and
+  `PublishKbArticle` until BOTH extensions have published five minor releases with the tasks
+  available in both, counting from this extension's first published release — side-by-side is not
+  real until there is something to install alongside. Only then are the originals removed there.
+  A version count rather than a date, because what a consumer needs before switching is evidence
+  that the new tasks have shipped and held up, which a calendar cannot supply. Until then every run
+  of the Terraform-hosted originals logs a non-fatal warning naming its replacement.
 - Base manifest keeps `"public": false` and `configs/release.json` is the override that opts into the
   public listing. Both halves are now a gate: `scripts/check-versions.js` reads every file in
   `configs/`, allows only `release.json` to set `public: true` or a `Public` gallery flag, requires
