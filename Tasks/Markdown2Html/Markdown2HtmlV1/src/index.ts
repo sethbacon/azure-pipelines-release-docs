@@ -1,6 +1,7 @@
 import tasks = require('azure-pipelines-task-lib/task');
 import path = require('path');
 import { processFrontMatterDriven, processFileList, parseFileList } from './converter';
+import { sanitizeOutputVariableValue } from './output-variable';
 
 async function run(): Promise<void> {
     tasks.setResourcePath(path.join(__dirname, '..', 'task.json'));
@@ -37,7 +38,14 @@ async function run(): Promise<void> {
             });
         }
 
-        tasks.setVariable('htmlFilePath', outPath, false, true);
+        // Emitted as `##vso[task.setvariable ...]` and macro-expanded by later
+        // steps, so the path is validated before it crosses that boundary.
+        const safeHtmlFilePath = sanitizeOutputVariableValue(outPath);
+        if (safeHtmlFilePath === null) {
+            tasks.warning(tasks.loc('OutputVariableRejected', 'htmlFilePath'));
+        } else {
+            tasks.setVariable('htmlFilePath', safeHtmlFilePath, false, true);
+        }
         tasks.setResult(tasks.TaskResult.Succeeded, tasks.loc('HtmlWrittenTo', outPath));
     } catch (error) {
         tasks.setResult(

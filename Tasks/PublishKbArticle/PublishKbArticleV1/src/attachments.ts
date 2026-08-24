@@ -201,18 +201,18 @@ function readAttachmentFile(filePath: string): Buffer {
     }
 }
 
-const CONTENT_TYPES: Record<string, string> = {
-    '.png': 'image/png',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.gif': 'image/gif',
-    '.svg': 'image/svg+xml',
-    '.webp': 'image/webp',
-    '.bmp': 'image/bmp',
-};
+const CONTENT_TYPES = new Map<string, string>([
+    ['.png', 'image/png'],
+    ['.jpg', 'image/jpeg'],
+    ['.jpeg', 'image/jpeg'],
+    ['.gif', 'image/gif'],
+    ['.svg', 'image/svg+xml'],
+    ['.webp', 'image/webp'],
+    ['.bmp', 'image/bmp'],
+]);
 
 export function contentTypeFor(fileName: string): string {
-    return CONTENT_TYPES[path.extname(fileName).toLowerCase()] || 'application/octet-stream';
+    return CONTENT_TYPES.get(path.extname(fileName).toLowerCase()) ?? 'application/octet-stream';
 }
 
 /**

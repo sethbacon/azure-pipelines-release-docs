@@ -25,6 +25,8 @@
   "loc.input.help.dryRun": "Compute and print the release without writing any file or calling the REST API.",
   "loc.messages.CommitsConsidered": "Read %s commit(s), of which %s parsed as conventional commits, since %s.",
   "loc.messages.NothingToRelease": "No releasable change since the last tag: every commit was a silent type or unparseable.",
+  "loc.messages.OutputVariableRejected": "The value for output variable '%s' failed validation (length or non-printable characters); the variable was not set.",
+  "loc.messages.PathEscapesWorkingDirectory": "Refusing to write '%s': it resolves outside the working directory once symlinks are resolved.",
   "loc.messages.VersionResolved": "Version %s -> %s (%s bump).",
   "loc.messages.VersionFileMissing": "Version file %s does not exist; skipping it.",
   "loc.messages.VersionFileUnstampable": "Version file %s has no value at %s, so the release would ship a manifest still claiming the previous version.",
