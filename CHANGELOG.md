@@ -10,6 +10,13 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [0.2.2](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v0.2.1...v0.2.2) (2026-08-24)
+
+
+### Bug Fixes
+
+* **gates:** adopt the cross-file resolution the sibling gate already has ([#111](https://github.com/sethbacon/azure-pipelines-release-docs/issues/111)) ([4d6318d](https://github.com/sethbacon/azure-pipelines-release-docs/commit/4d6318da1a93e1d161fab4c5111dd94b24082010)), closes [#108](https://github.com/sethbacon/azure-pipelines-release-docs/issues/108)
+
 ## [0.2.1](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v0.2.0...v0.2.1) (2026-08-24)
 
 
