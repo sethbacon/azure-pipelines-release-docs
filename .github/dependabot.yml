@@ -132,6 +132,27 @@ updates:
           - "*"
 
   - package-ecosystem: npm
+    directory: /Tasks/Changelog/ChangelogV1
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    allow:
+      - dependency-type: "direct"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+    commit-message:
+      prefix: deps
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+    groups:
+      changelog-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: npm
     directory: /Tasks/PublishKbArticle/PublishKbArticleV1
     schedule:
       interval: weekly

@@ -393,10 +393,15 @@ jobs:
 
       # One pair per task, the shape both sibling extensions carry. Each task is
       # an independent npm package with its own lockfile, so the extension SBOM
-      # above does not describe it: without these, the two tasks' dependency
+      # above does not describe it: without these, the tasks' dependency
       # closures ship undescribed while SECURITY.md claims `sbom-attestation:
       # enforced` (#83). Installed with --omit=dev so the SBOM is the closure
       # that ships, not the one that builds it.
+      - name: Generate the ChangelogV1 SBOM
+        run: |
+          cd Tasks/Changelog/ChangelogV1
+          npm ci --omit=dev --ignore-scripts
+          npx --no-install cyclonedx-npm --output-file ../../../sbom-changelogv1.cdx.json --omit dev
       - name: Generate the Markdown2HtmlV1 SBOM
         run: |
           cd Tasks/Markdown2Html/Markdown2HtmlV1
@@ -435,6 +440,11 @@ jobs:
       # An SBOM generated and not attested travels with the release as an
       # unsigned file rather than a verifiable claim about the .vsix, so the
       # readiness gate requires the pair in both directions.
+      - name: Attest the ChangelogV1 SBOM for the .vsix
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: "*.vsix"
+          sbom-path: "sbom-changelogv1.cdx.json"
       - name: Attest the Markdown2HtmlV1 SBOM for the .vsix
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:

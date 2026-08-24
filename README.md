@@ -5,10 +5,51 @@ DevOps extension covering release engineering (conventional-commit changelog + v
 and documentation publishing (`Markdown2Html`, `PublishKbArticle`, migrated out of
 [azure-pipelines-terraform](https://github.com/sethbacon/azure-pipelines-terraform)).
 
-> **Status: scaffold.** No tasks are implemented yet. The plan is held as a single source of truth in
-> the shared-core repo, because that package is Phase 0 and blocks this work:
+> **Status: three tasks, not yet published.** `PipelineChangelog`, `PipelineMarkdown2Html` and
+> `PipelinePublishKbArticle` are implemented; the extension has never published a Marketplace
+> release. The plan is held as a single source of truth in the shared-core repo:
 > [initiative-1-shared-task-core.md](https://github.com/4cloudguru/pipeline-task-core/blob/main/docs/initiatives/initiative-1-shared-task-core.md).
 > It is deliberately not duplicated here.
+
+## Tasks
+
+### `PipelineChangelog@1` — Changelog and Release Version
+
+Phase 2 of the initiative. Reads conventional commits since the last release tag, computes the next
+semantic version, prepends a release section to `CHANGELOG.md`, stamps version files, and opens or
+updates a release pull request — the release-please shape, for a repository Azure DevOps hosts.
+
+| Input | Default | Description |
+| --- | --- | --- |
+| `workingDirectory` | agent cwd | Repository root. |
+| `changelogPath` | `CHANGELOG.md` | Created with a Keep a Changelog header if absent. |
+| `tagPrefix` | `v` | Prefix on release tags. |
+| `targetBranch` | `main` | Branch the release pull request targets. |
+| `capZeroMajor` | `true` | A breaking change in 0.x bumps the minor (0.3.7 → 0.4.0) rather than reaching 1.0.0. Matches release-please's `bump-minor-pre-major`. |
+| `versionFiles` | — | One `path#$.json.path` per line. A bare path means `$.version`. Fails if a path does not resolve. |
+| `commitLimit` | `500` | Bounds history reading on a repository that has never been tagged. |
+| `openPullRequest` | `true` | When off, updates files and outputs without calling the REST API. |
+| `accessToken` | job identity | Only for cross-repository or cross-organisation publishing. |
+| `dryRun` | `false` | Compute and print without writing or calling anything. |
+
+Outputs: `releaseRequired`, `nextVersion`, `previousVersion`, `bumpType`, `releasePullRequestId`.
+
+**Permissions.** The task authenticates as the pipeline's own identity via `SystemVssConnection`, so
+the extension does **not** request `vso.code_write` — raising the manifest scope would re-prompt every
+installing organisation for consent and grant repo write to the whole extension for one task's sake.
+What gates it instead is the Build Service account's rights on the target repository: grant it
+**Contribute** and **Contribute to pull requests** there, and enable *Allow scripts to access the
+OAuth token* on the job.
+
+**Azure DevOps specifics this task exists to handle.** An ADO squash-merge prefixes the subject with
+`Merged PR 1234: `; left in place, every conventional commit in an ADO-hosted repo fails to parse and
+the release comes out silently empty. A PR description is capped at 4000 characters and is *rejected*
+rather than truncated past it. Both are handled, and both are covered by tests.
+
+### `PipelineMarkdown2Html@1` and `PipelinePublishKbArticle@1`
+
+Migrated out of the Terraform extension (#71). See
+[the migration note](#why-a-separate-extension) below for why they moved and what the cutover window is.
 
 ## Why a separate extension
 
