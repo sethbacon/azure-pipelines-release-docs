@@ -41,12 +41,12 @@ export function formatDryRunReport(plan: DryRunPlan): string {
     lines.push('  DRY RUN — no changes will be made');
     lines.push('========================================');
 
-    const actionLabel: Record<PlannedAction, string> = {
-        'create': 'CREATE new article',
-        'update': 'UPDATE existing article',
-        'workflow-only': 'CHANGE workflow state only',
-    };
-    lines.push(`Action:            ${actionLabel[plan.action]}`);
+    const actionLabel = new Map<PlannedAction, string>([
+        ['create', 'CREATE new article'],
+        ['update', 'UPDATE existing article'],
+        ['workflow-only', 'CHANGE workflow state only'],
+    ]);
+    lines.push(`Action:            ${actionLabel.get(plan.action) ?? plan.action}`);
     lines.push(`Instance:          ${plan.instance}`);
 
     if (plan.kbId) {

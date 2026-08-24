@@ -2,6 +2,10 @@ import * as fs from 'fs';
 import tasks = require('azure-pipelines-task-lib/task');
 import { isValidSysId } from './image-rewrite';
 
+// Re-exported so this task's existing importers keep one import site, while the
+// guard itself lives in the module the other two tasks share.
+export { sanitizeOutputVariableValue } from './output-variable';
+
 /**
  * Collapse any newline-family character (CR, LF, CRLF, and the Unicode
  * line/paragraph separators U+2028/U+2029 -- a JSON \u-escape can carry one
@@ -15,31 +19,6 @@ import { isValidSysId } from './image-rewrite';
  */
 export function sanitizeForSingleLineEcho(value: string): string {
     return value.replace(/\r\n|[\r\n\u2028\u2029]/g, ' ');
-}
-
-/** Upper bound on a ServiceNow-supplied value before it becomes a pipeline output variable. */
-const OUTPUT_VAR_MAX_LENGTH = 1024;
-
-/**
- * The output-variable counterpart of sanitizeForSingleLineEcho.
- *
- * sanitizeForSingleLineEcho only ever guarded the console ECHO of sys_id /
- * number / workflow_state; the sibling `tasks.setVariable` calls for the same
- * three ServiceNow-response fields had no validation at all, not even the
- * `as string` cast they carried (a cast is erased at runtime -- a JSON object
- * or number in that field reached setVariable unchanged). An ADO output
- * variable is a real trust boundary: it is emitted as
- * `##vso[task.setvariable variable=x]VALUE` and later steps macro-expand
- * `$(x)` into scripts, so a CR/LF in VALUE forges a second logging command and
- * the raw value lands in a shell. Caps length and requires printable ASCII,
- * matching BasePackerCommandHandler/BaseTerraformCommandHandler's guard of the
- * same name. Returns null (caller skips the variable) when validation fails.
- */
-export function sanitizeOutputVariableValue(value: unknown): string | null {
-    if (typeof value !== 'string' && typeof value !== 'number') return null;
-    const text = String(value);
-    if (!text || text.length > OUTPUT_VAR_MAX_LENGTH) return null;
-    return /^[\x20-\x7E]+$/.test(text) ? text : null;
 }
 
 /** Upper bound on a kb-manifest file before it is read into memory and parsed. */

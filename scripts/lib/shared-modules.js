@@ -11,6 +11,7 @@
 
 const MARKDOWN_SRC = 'Tasks/Markdown2Html/Markdown2HtmlV1/src';
 const PUBLISH_SRC = 'Tasks/PublishKbArticle/PublishKbArticleV1/src';
+const CHANGELOG_SRC = 'Tasks/Changelog/ChangelogV1/src';
 
 const FAMILIES = [
     {
@@ -37,6 +38,17 @@ const FAMILIES = [
         // active content a KB article published the other way would have stripped.
         dirs: [MARKDOWN_SRC, PUBLISH_SRC],
         modules: ['html-sanitizer.ts'],
+    },
+    {
+        // The output-variable neutralizer. Every task in this extension emits
+        // `##vso[task.setvariable ...]`, which later steps macro-expand into
+        // scripts, so all three need the SAME length/printable-ASCII guard on the
+        // way out. It lived in PublishKbArticle's manifest.ts, where the other two
+        // tasks could not reach it -- Changelog and Markdown2Html emitted five
+        // output variables with no validation at all until the suite replay was
+        // finally pointed at this repo and said so.
+        dirs: [PUBLISH_SRC, CHANGELOG_SRC, MARKDOWN_SRC],
+        modules: ['output-variable.ts'],
     },
 ];
 

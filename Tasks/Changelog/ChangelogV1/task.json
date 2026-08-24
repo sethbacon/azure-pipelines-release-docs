@@ -84,7 +84,7 @@
     },
     {
       "name": "accessToken",
-      "type": "string",
+      "type": "password",
       "label": "Access token",
       "required": false,
       "helpMarkDown": "Overrides the job's own SystemVssConnection token. Only needed for cross-repository or cross-organisation publishing. Pass a secret variable, never a literal."
@@ -144,6 +144,8 @@
   },
   "messages": {
     "CommitsConsidered": "Read %s commit(s), of which %s parsed as conventional commits, since %s.",
+    "OutputVariableRejected": "The value for output variable '%s' failed validation (length or non-printable characters); the variable was not set.",
+    "PathEscapesWorkingDirectory": "Refusing to write '%s': it resolves outside the working directory once symlinks are resolved.",
     "NothingToRelease": "No releasable change since the last tag: every commit was a silent type or unparseable.",
     "VersionResolved": "Version %s -> %s (%s bump).",
     "VersionFileMissing": "Version file %s does not exist; skipping it.",

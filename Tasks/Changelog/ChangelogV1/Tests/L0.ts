@@ -11,6 +11,7 @@
 import assert = require('assert');
 import cp = require('child_process');
 import fs = require('fs');
+import os = require('os');
 import path = require('path');
 import tasks = require('azure-pipelines-task-lib/task');
 
@@ -18,6 +19,8 @@ import { parseCommit, parseCommits, hasReleasableChange, isRendered } from '../s
 import { parseVersion, formatVersion, bumpTypeFor, applyBump, nextVersion } from '../src/version';
 import { renderRelease, spliceRelease } from '../src/changelog';
 import { parseVersionFiles, stampJson, isSupportedJsonPath } from '../src/version-files';
+import { sanitizeOutputVariableValue } from '../src/output-variable';
+import { isWithinWorkingDirectory } from '../src/path-containment';
 import { commitsSince, latestReleaseTag } from '../src/git';
 import { parseJson, resolveToken, adoRequest } from '../src/ado-client';
 import {
@@ -199,10 +202,81 @@ describe('version-files: stamping', () => {
         assert.strictEqual(stampJson('{"a":{"b":1}}', '$.a.c', '1.1.0'), null);
         assert.strictEqual(stampJson('not json', '$.version', '1.1.0'), null);
     });
+
+    it('refuses a path segment that reaches the prototype chain', () => {
+        // Every one of these satisfies the DOTTED grammar, and the leaf test used
+        // to be `in`, which walks the prototype chain -- so `$.__proto__.toString`
+        // resolved and assigned onto Object.prototype for the rest of the process.
+        assert.strictEqual(isSupportedJsonPath('$.__proto__.toString'), false);
+        assert.strictEqual(isSupportedJsonPath('$.constructor.prototype.x'), false);
+        assert.strictEqual(isSupportedJsonPath('$.a.prototype'), false);
+
+        assert.strictEqual(stampJson('{"a":1}', '$.__proto__.toString', 'pwned'), null);
+        assert.strictEqual(({} as Record<string, unknown>)['toString'], Object.prototype.toString);
+        assert.strictEqual(stampJson('{"a":1}', '$.constructor.prototype.polluted', 'pwned'), null);
+        assert.strictEqual(({} as Record<string, unknown>)['polluted'], undefined);
+    });
+
+    it('walks only own properties, so an inherited name is not a resolvable path', () => {
+        assert.strictEqual(stampJson('{"a":1}', '$.hasOwnProperty', 'x'), null);
+        assert.strictEqual(stampJson('{"a":1}', '$.toString', 'x'), null);
+        assert.strictEqual(stampJson('[1,2]', '$.toString', 'x'), null);
+    });
 });
 
-describe('git: history reading', () => {
-    it('asks for tags by version order, not tag date', () => {
+describe('output-variable: the setVariable boundary', () => {
+    it('rejects a value carrying a newline, which would forge a second logging command', () => {
+        assert.strictEqual(
+            sanitizeOutputVariableValue('1.2.3\n##vso[task.setvariable variable=pwned]1'),
+            null,
+        );
+        assert.strictEqual(sanitizeOutputVariableValue('\r\n'), null);
+    });
+
+    it('rejects a non-string value, which an `as string` cast would have let through', () => {
+        assert.strictEqual(sanitizeOutputVariableValue({ nested: true }), null);
+        assert.strictEqual(sanitizeOutputVariableValue(undefined), null);
+        assert.strictEqual(sanitizeOutputVariableValue(42), '42');
+    });
+
+    it('caps length and passes an ordinary value through unchanged', () => {
+        assert.strictEqual(sanitizeOutputVariableValue('x'.repeat(1025)), null);
+        assert.strictEqual(sanitizeOutputVariableValue('1.2.3'), '1.2.3');
+        assert.strictEqual(sanitizeOutputVariableValue('minor'), 'minor');
+    });
+});
+
+describe('path-containment: the write boundary', () => {
+    it('accepts the working directory itself and its descendants', () => {
+        const base = fs.realpathSync(os.tmpdir());
+        assert.strictEqual(isWithinWorkingDirectory(base, base), true);
+        assert.strictEqual(isWithinWorkingDirectory(path.join(base, 'a', 'b.md'), base), true);
+    });
+
+    it('rejects a traversal out of the working directory', () => {
+        const base = path.join(fs.realpathSync(os.tmpdir()), 'wd');
+        assert.strictEqual(isWithinWorkingDirectory(path.resolve(base, '../../etc/passwd'), base), false);
+        assert.strictEqual(isWithinWorkingDirectory(path.resolve(base, '..', 'sibling.md'), base), false);
+    });
+
+    it('rejects a target that only stays inside lexically, via a symlink', function () {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'containment-'));
+        const base = path.join(root, 'work');
+        const outside = path.join(root, 'outside');
+        fs.mkdirSync(base);
+        fs.mkdirSync(outside);
+        try {
+            fs.symlinkSync(outside, path.join(base, 'link'), 'junction');
+        } catch {
+            this.skip(); // symlink creation is privileged on some Windows agents
+            return;
+        }
+        // path.resolve alone says this is under base; realpath says it is not.
+        assert.strictEqual(isWithinWorkingDirectory(path.join(base, 'link', 'x.md'), base), false);
+    });
+});
+
+describe('git: history reading', () => {    it('asks for tags by version order, not tag date', () => {
         const calls: string[][] = [];
         const tag = latestReleaseTag((args) => {
             calls.push(args);

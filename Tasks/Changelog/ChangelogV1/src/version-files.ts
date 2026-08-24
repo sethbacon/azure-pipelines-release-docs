@@ -30,8 +30,14 @@ export function parseVersionFiles(raw: string | undefined): VersionFile[] {
 /** Only `$.a.b` dotted paths — no wildcards, filters or recursive descent. */
 const DOTTED = /^\$(?:\.[A-Za-z_$][\w$]*)+$/;
 
+// `__proto__`, `constructor` and `prototype` all satisfy DOTTED, and the leaf
+// test below uses `in`, which walks the prototype chain -- so `$.__proto__.toString`
+// would resolve and assign onto Object.prototype.
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 export function isSupportedJsonPath(jsonpath: string): boolean {
-    return DOTTED.test(jsonpath);
+    if (!DOTTED.test(jsonpath)) return false;
+    return !jsonpath.slice(2).split('.').some((segment) => UNSAFE_KEYS.has(segment));
 }
 
 /**
@@ -50,16 +56,18 @@ export function stampJson(source: string, jsonpath: string, version: string): st
     } catch {
         return null;
     }
+    if (!parsed || typeof parsed !== 'object') return null;
 
     const segments = jsonpath.slice(2).split('.');
     let cursor: Record<string, unknown> = parsed as Record<string, unknown>;
     for (const segment of segments.slice(0, -1)) {
-        const next = cursor?.[segment];
+        if (!Object.prototype.hasOwnProperty.call(cursor, segment)) return null;
+        const next = cursor[segment];
         if (!next || typeof next !== 'object') return null;
         cursor = next as Record<string, unknown>;
     }
     const leaf = segments[segments.length - 1];
-    if (!cursor || typeof cursor !== 'object' || !(leaf in cursor)) return null;
+    if (!Object.prototype.hasOwnProperty.call(cursor, leaf)) return null;
 
     cursor[leaf] = version;
 

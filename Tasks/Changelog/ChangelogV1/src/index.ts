@@ -7,11 +7,25 @@ import { formatVersion, nextVersion, parseVersion } from './version';
 import { renderRelease, spliceRelease } from './changelog';
 import { commitsSince, defaultRunner, latestReleaseTag } from './git';
 import { parseVersionFiles, stampJson } from './version-files';
+import { sanitizeOutputVariableValue } from './output-variable';
+import { isWithinWorkingDirectory } from './path-containment';
 import { resolveToken, AdoConnection } from './ado-client';
 import { createReleasePr, findOpenReleasePr, fitDescription, releaseBranchName, updateReleasePr } from './release-pr';
 
 function today(): string {
     return new Date().toISOString().slice(0, 10);
+}
+
+// An output variable is emitted as `##vso[task.setvariable ...]` and expanded by
+// later steps into scripts, so every value crossing it is validated first and a
+// value that cannot be is dropped rather than emitted raw.
+function setOutputVariable(name: string, value: unknown): void {
+    const safeValue = sanitizeOutputVariableValue(value);
+    if (safeValue === null) {
+        tasks.warning(tasks.loc('OutputVariableRejected', name));
+        return;
+    }
+    tasks.setVariable(name, safeValue, false, true);
 }
 
 // Read-and-handle-ENOENT rather than exists-then-read: the check-then-use pair
@@ -59,12 +73,18 @@ async function run(): Promise<void> {
         const section = renderRelease({ version, date: today(), commits });
 
         const changelogFile = path.resolve(workingDirectory, changelogPath);
+        if (!isWithinWorkingDirectory(changelogFile, workingDirectory)) {
+            throw new Error(tasks.loc('PathEscapesWorkingDirectory', changelogPath));
+        }
         const existing = readIfPresent(changelogFile) ?? '';
         const updated = spliceRelease(existing, section);
 
         const stamped: string[] = [];
         for (const file of parseVersionFiles(tasks.getInput('versionFiles', false))) {
             const absolute = path.resolve(workingDirectory, file.path);
+            if (!isWithinWorkingDirectory(absolute, workingDirectory)) {
+                throw new Error(tasks.loc('PathEscapesWorkingDirectory', file.path));
+            }
             const source = readIfPresent(absolute);
             if (source === null) {
                 tasks.warning(tasks.loc('VersionFileMissing', file.path));
@@ -81,9 +101,9 @@ async function run(): Promise<void> {
         if (!dryRun) fs.writeFileSync(changelogFile, updated, 'utf8');
 
         tasks.setVariable('releaseRequired', 'true', false, true);
-        tasks.setVariable('nextVersion', versionText, false, true);
-        tasks.setVariable('previousVersion', formatVersion(current), false, true);
-        tasks.setVariable('bumpType', bump, false, true);
+        setOutputVariable('nextVersion', versionText);
+        setOutputVariable('previousVersion', formatVersion(current));
+        setOutputVariable('bumpType', bump);
 
         if (dryRun) {
             console.log(tasks.loc('DryRunSummary', versionText, changelogPath, stamped.length));
@@ -116,7 +136,7 @@ async function run(): Promise<void> {
             ? (await updateReleasePr(connection, existingPr.pullRequestId, title, description), existingPr)
             : await createReleasePr(connection, sourceBranch, targetBranch, title, description);
 
-        tasks.setVariable('releasePullRequestId', String(pr.pullRequestId), false, true);
+        setOutputVariable('releasePullRequestId', String(pr.pullRequestId));
         tasks.setResult(tasks.TaskResult.Succeeded, tasks.loc('ReleasePrReady', versionText, pr.pullRequestId));
     } catch (error) {
         tasks.setResult(tasks.TaskResult.Failed, error instanceof Error ? error.message : String(error));
