@@ -10,6 +10,19 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [0.2.1](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v0.2.0...v0.2.1) (2026-08-24)
+
+
+### Bug Fixes
+
+* **gates:** report how many source files were read, not just what was found ([#106](https://github.com/sethbacon/azure-pipelines-release-docs/issues/106)) ([79803f5](https://github.com/sethbacon/azure-pipelines-release-docs/commit/79803f55f2bc60bca3aeb7298021bc877f44beeb))
+* **security:** validate the boundaries the suite replay found unguarded ([#110](https://github.com/sethbacon/azure-pipelines-release-docs/issues/110)) ([d633658](https://github.com/sethbacon/azure-pipelines-release-docs/commit/d6336583011d223bdfaa4bf538a4aa047d5c87ce))
+
+
+### Documentation
+
+* record the OIDC subject that differs from the siblings' ([#104](https://github.com/sethbacon/azure-pipelines-release-docs/issues/104)) ([22c6efb](https://github.com/sethbacon/azure-pipelines-release-docs/commit/22c6efb87401603242973e9832a5274c5302228f))
+
 ## [0.2.0](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v0.1.6...v0.2.0) (2026-08-24)
 
 
