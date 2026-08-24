@@ -14,6 +14,18 @@ function today(): string {
     return new Date().toISOString().slice(0, 10);
 }
 
+// Read-and-handle-ENOENT rather than exists-then-read: the check-then-use pair
+// is a file-system race (CWE-367), and the answer to "does it exist" is stale
+// the instant it is returned.
+function readIfPresent(file: string): string | null {
+    try {
+        return fs.readFileSync(file, 'utf8');
+    } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+        throw err;
+    }
+}
+
 async function run(): Promise<void> {
     tasks.setResourcePath(path.join(__dirname, '..', 'task.json'));
     try {
@@ -47,17 +59,18 @@ async function run(): Promise<void> {
         const section = renderRelease({ version, date: today(), commits });
 
         const changelogFile = path.resolve(workingDirectory, changelogPath);
-        const existing = fs.existsSync(changelogFile) ? fs.readFileSync(changelogFile, 'utf8') : '';
+        const existing = readIfPresent(changelogFile) ?? '';
         const updated = spliceRelease(existing, section);
 
         const stamped: string[] = [];
         for (const file of parseVersionFiles(tasks.getInput('versionFiles', false))) {
             const absolute = path.resolve(workingDirectory, file.path);
-            if (!fs.existsSync(absolute)) {
+            const source = readIfPresent(absolute);
+            if (source === null) {
                 tasks.warning(tasks.loc('VersionFileMissing', file.path));
                 continue;
             }
-            const next = stampJson(fs.readFileSync(absolute, 'utf8'), file.jsonpath, versionText);
+            const next = stampJson(source, file.jsonpath, versionText);
             if (next === null) {
                 throw new Error(tasks.loc('VersionFileUnstampable', file.path, file.jsonpath));
             }
