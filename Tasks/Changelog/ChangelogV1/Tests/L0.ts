@@ -259,24 +259,23 @@ describe('path-containment: the write boundary', () => {
         assert.strictEqual(isWithinWorkingDirectory(path.resolve(base, '..', 'sibling.md'), base), false);
     });
 
-    it('rejects a target that only stays inside lexically, via a symlink', function () {
+    it('rejects a target that only stays inside lexically, via a symlink', () => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'containment-'));
         const base = path.join(root, 'work');
         const outside = path.join(root, 'outside');
         fs.mkdirSync(base);
         fs.mkdirSync(outside);
-        try {
-            fs.symlinkSync(outside, path.join(base, 'link'), 'junction');
-        } catch {
-            this.skip(); // symlink creation is privileged on some Windows agents
-            return;
-        }
+        // Deliberately unguarded: 'junction' needs no privilege on Windows and
+        // symlinkSync always works elsewhere, so a throw here is a real finding.
+        // A this.skip() would mark the test pending, which --forbid-pending fails.
+        fs.symlinkSync(outside, path.join(base, 'link'), 'junction');
         // path.resolve alone says this is under base; realpath says it is not.
         assert.strictEqual(isWithinWorkingDirectory(path.join(base, 'link', 'x.md'), base), false);
     });
 });
 
-describe('git: history reading', () => {    it('asks for tags by version order, not tag date', () => {
+describe('git: history reading', () => {
+    it('asks for tags by version order, not tag date', () => {
         const calls: string[][] = [];
         const tag = latestReleaseTag((args) => {
             calls.push(args);
