@@ -10,6 +10,13 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [0.2.3](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v0.2.2...v0.2.3) (2026-08-24)
+
+
+### Bug Fixes
+
+* **test:** stop a symlink failure from turning into a suite failure ([#114](https://github.com/sethbacon/azure-pipelines-release-docs/issues/114)) ([5bb0b32](https://github.com/sethbacon/azure-pipelines-release-docs/commit/5bb0b32e1c4c858e9b868c8f0b3d708901d803ae))
+
 ## [0.2.2](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v0.2.1...v0.2.2) (2026-08-24)
 
 
