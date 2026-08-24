@@ -27,6 +27,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: UTC
     cooldown:
       default-days: 7
     allow:
@@ -35,7 +38,7 @@ updates:
           - "version-update:semver-minor"
           - "version-update:semver-patch"
     commit-message:
-      prefix: deps
+      prefix: "chore(deps)"
     # codeql-action's init/analyze are separate Dependabot dependencies but are
     # version-locked at runtime, so they have to move in a single PR.
     groups:
@@ -47,6 +50,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: UTC
     cooldown:
       default-days: 7
     allow:
@@ -55,7 +61,7 @@ updates:
           - "version-update:semver-minor"
           - "version-update:semver-patch"
     commit-message:
-      prefix: deps
+      prefix: "chore(deps)"
     groups:
       dev-dependencies:
         dependency-type: development
@@ -92,7 +98,7 @@ updates:
       - dependencies
       - github-actions
     commit-message:
-      prefix: "chore(ci)"
+      prefix: "chore(deps)"
     groups:
       commit-message-check:
         patterns:
@@ -114,6 +120,9 @@ updates:
     directory: /Tasks/Markdown2Html/Markdown2HtmlV1
     schedule:
       interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: UTC
     cooldown:
       default-days: 7
     allow:
@@ -122,7 +131,7 @@ updates:
           - "version-update:semver-minor"
           - "version-update:semver-patch"
     commit-message:
-      prefix: deps
+      prefix: "chore(deps)"
     ignore:
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
@@ -135,6 +144,9 @@ updates:
     directory: /Tasks/Changelog/ChangelogV1
     schedule:
       interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: UTC
     cooldown:
       default-days: 7
     allow:
@@ -143,7 +155,7 @@ updates:
           - "version-update:semver-minor"
           - "version-update:semver-patch"
     commit-message:
-      prefix: deps
+      prefix: "chore(deps)"
     ignore:
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
@@ -156,6 +168,9 @@ updates:
     directory: /Tasks/PublishKbArticle/PublishKbArticleV1
     schedule:
       interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: UTC
     cooldown:
       default-days: 7
     allow:
@@ -164,7 +179,7 @@ updates:
           - "version-update:semver-minor"
           - "version-update:semver-patch"
     commit-message:
-      prefix: deps
+      prefix: "chore(deps)"
     ignore:
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
