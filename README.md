@@ -19,18 +19,18 @@ Phase 2 of the initiative. Reads conventional commits since the last release tag
 semantic version, prepends a release section to `CHANGELOG.md`, stamps version files, and opens or
 updates a release pull request — the release-please shape, for a repository Azure DevOps hosts.
 
-| Input | Default | Description |
-| --- | --- | --- |
-| `workingDirectory` | agent cwd | Repository root. |
-| `changelogPath` | `CHANGELOG.md` | Created with a Keep a Changelog header if absent. |
-| `tagPrefix` | `v` | Prefix on release tags. |
-| `targetBranch` | `main` | Branch the release pull request targets. |
-| `capZeroMajor` | `true` | A breaking change in 0.x bumps the minor (0.3.7 → 0.4.0) rather than reaching 1.0.0. Matches release-please's `bump-minor-pre-major`. |
-| `versionFiles` | — | One `path#$.json.path` per line. A bare path means `$.version`. Fails if a path does not resolve. |
-| `commitLimit` | `500` | Bounds history reading on a repository that has never been tagged. |
-| `openPullRequest` | `true` | When off, updates files and outputs without calling the REST API. |
-| `accessToken` | job identity | Only for cross-repository or cross-organisation publishing. |
-| `dryRun` | `false` | Compute and print without writing or calling anything. |
+| Input              | Default        | Description                                                                                                                           |
+| ------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `workingDirectory` | agent cwd      | Repository root.                                                                                                                      |
+| `changelogPath`    | `CHANGELOG.md` | Created with a Keep a Changelog header if absent.                                                                                     |
+| `tagPrefix`        | `v`            | Prefix on release tags.                                                                                                               |
+| `targetBranch`     | `main`         | Branch the release pull request targets.                                                                                              |
+| `capZeroMajor`     | `true`         | A breaking change in 0.x bumps the minor (0.3.7 → 0.4.0) rather than reaching 1.0.0. Matches release-please's `bump-minor-pre-major`. |
+| `versionFiles`     | —              | One `path#$.json.path` per line. A bare path means `$.version`. Fails if a path does not resolve.                                     |
+| `commitLimit`      | `500`          | Bounds history reading on a repository that has never been tagged.                                                                    |
+| `openPullRequest`  | `true`         | When off, updates files and outputs without calling the REST API.                                                                     |
+| `accessToken`      | job identity   | Only for cross-repository or cross-organisation publishing.                                                                           |
+| `dryRun`           | `false`        | Compute and print without writing or calling anything.                                                                                |
 
 Outputs: `releaseRequired`, `nextVersion`, `previousVersion`, `bumpType`, `releasePullRequestId`.
 
@@ -140,7 +140,7 @@ and asserts, over its own finished output, that every path the packaged manifest
 
 Commits follow Conventional Commits; releases are cut by release-please.
 
-> **The publish path exists and has never run.** `.github/workflows/release.yml` takes a `v*` tag on
+> **The publish path.** `.github/workflows/release.yml` takes a `v*` tag on
 > `main` through guard → CI → build → package → SBOM-and-sign → draft release → Marketplace publish →
 > undraft, gating the publish behind the `marketplace` GitHub Environment and authenticating with a
 > GitHub OIDC to Microsoft Entra federated credential rather than a stored token. It was ported from
@@ -148,13 +148,24 @@ Commits follow Conventional Commits; releases are cut by release-please.
 > disagree and which side this repository followed, and why the ten-minute cap on the Entra token
 > decides the job order.
 >
-> It cannot yet complete: `azure-devops-extension.json` declares `"contributions": []`, and
-> `tfx extension create` refuses to package a manifest with no contribution. A tag pushed today stops
-> in the first job saying exactly that (`scripts/check-release-readiness.js`), which is the point —
-> the path is reviewed before it carries anything, rather than after. Two prerequisites also live
-> outside this tree: a federated credential on the shared publishing service principal for this
-> repository's subject, and the `marketplace` environment's own self-review/admin-bypass and `v*` tag
-> protection settings (#50, #51).
+> **The federated credential's subject is NOT the same shape as the siblings', and copying theirs
+> does not work.** This repository was created on 2026-08-11, after GitHub's 2026-07-15 cutoff, so it
+> gets the immutable default OIDC subject that embeds the owner and repository IDs:
+>
+> ```
+> repo:sethbacon@14307877/azure-pipelines-release-docs@1331298995:environment:marketplace
+> ```
+>
+> azure-pipelines-terraform and -packer predate that cutoff and still present the plain
+> `repo:OWNER/REPO:environment:marketplace` form, which is what their CONTRIBUTING.md documents. A
+> credential created from their recipe here never matches, and the failure is
+> `AADSTS700213: No matching federated identity record found` — which reads like a wrong credential
+> rather than a wrong format. `gh api repos/OWNER/REPO/actions/oidc/customization/sub` returns the
+> exact `sub_claim_prefix` for any repository. Note that a rename or transfer after the cutoff moves
+> a legacy repository onto the immutable form too.
+>
+> One prerequisite still lives outside this tree: the `marketplace` environment's own
+> self-review/admin-bypass and `v*` tag protection settings (#50, #51).
 >
 > `SECURITY.md` carries the machine-checked form: its **Supply chain controls** table lists each
 > control as `enforced` or `planned`, and `scripts/check-docs-claims.js` fails the build in both

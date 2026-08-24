@@ -33,7 +33,6 @@ discovering them for the first time.
 
 ## Supply chain controls
 
-**Status as of 2026-08-19: the publish path exists and has never run.**
 `.github/workflows/release.yml` builds, packages, signs and attests the `.vsix` and publishes it
 behind the `marketplace` GitHub Environment, using the `AZDO_PUBLISH_CLIENT_ID`/`AZDO_PUBLISH_TENANT_ID`
 variables and a GitHub OIDC to Microsoft Entra federated credential rather than a stored token. It was
@@ -43,22 +42,41 @@ ported from the sibling extensions
 here, and the header of that file records where the two siblings disagree and which side this
 repository followed.
 
-It has never run because it cannot yet complete. `azure-devops-extension.json` declares
-`"contributions": []` and `tfx extension create` refuses to package a manifest with no contribution,
-so a tag pushed today stops in the first job with that stated by name — `scripts/check-release-readiness.js`
-says it rather than leaving it to be discovered as a bare tfx error three jobs later. The first
-release becomes possible when the first task lands. Two things follow, and both are why the table
-below reads the way it does: these controls are enforced on the **only** path that can produce a
-published `.vsix` — no other path exists, and the manual `tfx` invocation that used to be the
-de-facto one is not a path this repository sanctions — and none of them has yet been exercised
-end to end against a real artifact.
+These controls are enforced on the **only** path that can produce a published `.vsix` — no other path
+exists, and the manual `tfx` invocation that used to be the de-facto one is not a path this
+repository sanctions.
 
-Two prerequisites live outside this tree and are not satisfied by merging this file. The Entra
-service principal behind `AZDO_PUBLISH_CLIENT_ID` is shared with both siblings and needs a federated
-credential for this repository's subject before `azure/login` can succeed here. And the `marketplace`
-environment as provisioned permits self-review and admin bypass (#50), with no protection on `v*`
-tags (#51); both are repository settings, and both have to be settled before that environment is
-load-bearing rather than decorative.
+### The federated credential's subject, which differs from the siblings'
+
+The Entra service principal behind `AZDO_PUBLISH_CLIENT_ID` is shared with both siblings, and each
+repository needs its own federated credential. This repository's subject is **not** the same shape as
+theirs:
+
+```
+repo:sethbacon@14307877/azure-pipelines-release-docs@1331298995:environment:marketplace
+```
+
+GitHub gives repositories created after **2026-07-15** an immutable default OIDC subject that embeds
+the owner and repository IDs. This repository was created 2026-08-11; azure-pipelines-terraform
+(2026-03-06) and azure-pipelines-packer (2026-06-12) predate the cutoff and still present the plain
+`repo:OWNER/REPO:environment:marketplace` form their CONTRIBUTING.md documents.
+
+This matters because the failure mode is misleading. A credential created from the siblings' recipe
+never matches, and Entra rejects it with `AADSTS700213: No matching federated identity record found
+for presented assertion subject`, which reads as a wrong or missing credential rather than a wrong
+format — so the natural next move is to recreate the same wrong thing. Read the authoritative value
+per repository instead of copying:
+
+```
+gh api repos/OWNER/REPO/actions/oidc/customization/sub --jq .sub_claim_prefix
+```
+
+A rename or transfer after the cutoff moves a legacy repository onto the immutable form as well, so
+the siblings are one repository-settings change away from needing new credentials of their own.
+
+One prerequisite still lives outside this tree: the `marketplace` environment as provisioned permits
+self-review and admin bypass (#50), with no protection on `v*` tags (#51). Both are repository
+settings, and both have to be settled before that environment is load-bearing rather than decorative.
 
 This table is machine-checked: `scripts/check-docs-claims.js` (CI job **Check Documented Claims**)
 reads it on every pull request and compares each row against `.github/workflows/`. The comparison
