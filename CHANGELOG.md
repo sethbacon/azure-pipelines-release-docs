@@ -10,6 +10,19 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.0.0](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v0.2.3...v1.0.0) (2026-08-25)
+
+
+### Bug Fixes
+
+* **ci:** adopt packer's check-minor-bumps, which detects runtime dependency changes ([#116](https://github.com/sethbacon/azure-pipelines-release-docs/issues/116)) ([af2c462](https://github.com/sethbacon/azure-pipelines-release-docs/commit/af2c4628fa77e4e7f26730d08e755ff99e0f63cd))
+* **ci:** resolve a delegated sink's origin before attributing it to a package ([#118](https://github.com/sethbacon/azure-pipelines-release-docs/issues/118)) ([8d856e9](https://github.com/sethbacon/azure-pipelines-release-docs/commit/8d856e9148c4aeae973dca3e0234990514f3c4fe))
+
+
+### Chores
+
+* **release:** declare 1.0.0 ([#121](https://github.com/sethbacon/azure-pipelines-release-docs/issues/121)) ([b6b6c70](https://github.com/sethbacon/azure-pipelines-release-docs/commit/b6b6c70ac5b83d61aafb9ee324101ce4a70e8646))
+
 ## [0.2.3](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v0.2.2...v0.2.3) (2026-08-24)
 
 
