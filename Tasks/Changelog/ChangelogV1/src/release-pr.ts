@@ -34,6 +34,16 @@ export function releaseBranchName(targetBranch: string): string {
     return `release/${targetBranch.replace(/^refs\/heads\//, '')}`;
 }
 
+/**
+ * The ADO REST base URL for this connection's repository.
+ *
+ * @egress-reviewed: the host segment is `connection.collectionUri`, read from
+ * the job's own `System.TeamFoundationCollectionUri` variable (see index.ts) --
+ * the ADO agent supplies this, not a pipeline author or a response body, so
+ * there is no operator- or attacker-controlled destination for a runtime
+ * allowlist to gate here. The path segments after it ARE operator/agent
+ * supplied and are validated below.
+ */
 function repoBase(connection: AdoConnection): string {
     const collection = connection.collectionUri.replace(/\/+$/, '');
     // Each segment is operator- or agent-supplied and lands in a URL path.
