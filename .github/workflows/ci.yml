@@ -42,8 +42,11 @@ jobs:
       # runs dependency-free node against the checked-out tree; there is nothing here
       # worth exfiltrating and its egress is the runner's own action and toolchain
       # fetches. The two jobs in this repository that DO hold a stored App private
-      # key — release-please and signature-replay's replay — are on `block` with an
-      # explicit allowlist (#23).
+      # key — release-please and signature-replay's replay — also run `audit` today
+      # (their first execution here, no baseline to block from yet); this repo does
+      # NOT set that policy itself, it's the pinned 4cloudguru/shared-workflows commit
+      # those jobs delegate to, self-checked against drift by
+      # scripts/check-shared-workflow-egress.js (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -91,6 +94,13 @@ jobs:
       # check-artifact-trust and auth-parity-matrix are replay-only there too.
       - name: Egress authorization (SSRF class signature)
         run: node scripts/check-egress-authorization.js
+      # Fetches the actual pinned 4cloudguru/shared-workflows commit that
+      # release-please/replay delegate to and fails if its real egress-policy
+      # ever stops matching what this repo's comments/SECURITY.md claim (#23) --
+      # the check that would have caught the drift the 2026-08-26 blind audit
+      # found by hand.
+      - name: Shared-workflow egress-policy claims match the pinned commit
+        run: node scripts/check-shared-workflow-egress.js
       - name: Enforced disciplines (documented-but-unenforced class signature)
         run: node scripts/check-enforced-disciplines.js
       - name: Self-test check-enforced-disciplines.js

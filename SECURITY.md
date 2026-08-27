@@ -147,10 +147,16 @@ merged commit**.
 
 Two properties of those jobs are worth stating because they are not visible from the list. The two
 jobs that hold a **stored** GitHub App private key — `release-please` and signature-replay's
-`replay` — run harden-runner with `egress-policy: block` and an explicit endpoint allowlist; every
-other job is on `audit` with the reason recorded on the step and enforced in both directions by the
-gate above. And `replay` revokes its installation token immediately after the one checkout it exists
-for, then spends the revoked token and fails if it still works — so the fifteen repositories' own
+`replay` — currently run harden-runner with `egress-policy: audit`, the same as every other job in
+this repository: both are the first execution of harden-runner at all for their jobs, so there is no
+baseline yet from which a `block` policy's endpoint allowlist could be derived without guessing (#23).
+That policy is not set in this repository at all — both jobs delegate to a reusable workflow pinned
+by commit SHA in `4cloudguru/shared-workflows`, and `scripts/check-shared-workflow-egress.js` fetches
+that exact pinned commit's source and fails the build if its real egress-policy ever stops matching
+what this file claims, so this description cannot silently drift from the pinned code the way it once
+did. Every other job is on `audit` with the reason recorded on the step and enforced in both directions
+by the gate above. And `replay` revokes its installation token immediately after the one checkout it
+exists for, then spends the revoked token and fails if it still works — so the fifteen repositories' own
 committed gate scripts, and the commit under review, execute in a job holding no credential.
 
 Three more gates run only at release time, in `release.yml`'s `guard` job, because they answer
