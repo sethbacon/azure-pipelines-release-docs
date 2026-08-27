@@ -31,7 +31,10 @@ jobs:
       # a third-party action's own dependency fetches rather than a set this
       # file can enumerate. The two jobs in this repository that DO hold a
       # stored App private key — release-please and signature-replay's replay —
-      # are on `block` with an explicit allowlist (#23).
+      # also run `audit` today (their first execution here, no baseline to block
+      # from yet); that policy lives in the pinned 4cloudguru/shared-workflows
+      # commit they delegate to, self-checked against drift by
+      # scripts/check-shared-workflow-egress.js (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -72,7 +75,10 @@ jobs:
       # a third-party action's own dependency fetches rather than a set this
       # file can enumerate. The two jobs in this repository that DO hold a
       # stored App private key — release-please and signature-replay's replay —
-      # are on `block` with an explicit allowlist (#23).
+      # also run `audit` today (their first execution here, no baseline to block
+      # from yet); that policy lives in the pinned 4cloudguru/shared-workflows
+      # commit they delegate to, self-checked against drift by
+      # scripts/check-shared-workflow-egress.js (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -206,8 +212,11 @@ jobs:
       # the GitHub API through `gh`; its remaining egress is the runner's own
       # action fetches rather than a set this file can enumerate. The two jobs
       # in this repository that DO hold a stored App private key —
-      # release-please and signature-replay's replay — are on `block` with an
-      # explicit allowlist (#23).
+      # release-please and signature-replay's replay — also run `audit` today
+      # (their first execution here, no baseline to block from yet); that
+      # policy lives in the pinned 4cloudguru/shared-workflows commit they
+      # delegate to, self-checked against drift by
+      # scripts/check-shared-workflow-egress.js (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
@@ -240,7 +249,10 @@ jobs:
       # a third-party action's own dependency fetches rather than a set this
       # file can enumerate. The two jobs in this repository that DO hold a
       # stored App private key — release-please and signature-replay's replay —
-      # are on `block` with an explicit allowlist (#23).
+      # also run `audit` today (their first execution here, no baseline to block
+      # from yet); that policy lives in the pinned 4cloudguru/shared-workflows
+      # commit they delegate to, self-checked against drift by
+      # scripts/check-shared-workflow-egress.js (#23).
       - uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
         with:
           egress-policy: audit
