@@ -10,6 +10,14 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.0.1](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.0.0...v1.0.1) (2026-08-27)
+
+
+### Bug Fixes
+
+* **security:** correct false egress-policy claims for release-please/replay ([#23](https://github.com/sethbacon/azure-pipelines-release-docs/issues/23)) ([#139](https://github.com/sethbacon/azure-pipelines-release-docs/issues/139)) ([f4fca69](https://github.com/sethbacon/azure-pipelines-release-docs/commit/f4fca69b21520564376deb011c7817a64da27e1d))
+* **security:** give the egress-authorization gate real sink coverage ([#124](https://github.com/sethbacon/azure-pipelines-release-docs/issues/124)) ([#138](https://github.com/sethbacon/azure-pipelines-release-docs/issues/138)) ([779e041](https://github.com/sethbacon/azure-pipelines-release-docs/commit/779e041f1dd3c51a073a761761e5a7f48452a1b4))
+
 ## [1.0.0](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v0.2.3...v1.0.0) (2026-08-25)
 
 
