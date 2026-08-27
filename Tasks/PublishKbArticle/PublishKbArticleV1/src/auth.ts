@@ -1,5 +1,6 @@
 import tasks = require('azure-pipelines-task-lib/task');
 import { snRequest, withRetry } from './servicenow-http';
+import { baseUrl } from './servicenow-client';
 
 /**
  * Obtain an OAuth token from ServiceNow using client credentials grant.
@@ -8,7 +9,7 @@ import { snRequest, withRetry } from './servicenow-http';
  */
 export async function getOAuthToken(instance: string, clientId: string, clientSecret: string): Promise<string> {
     tasks.setSecret(clientSecret);
-    const url = `https://${instance}.service-now.com/oauth_token.do`;
+    const url = `${baseUrl(instance)}/oauth_token.do`;
     const params = new URLSearchParams({
         grant_type: 'client_credentials',
         client_id: clientId,
