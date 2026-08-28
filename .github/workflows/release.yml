@@ -530,8 +530,15 @@ jobs:
           gh release upload "$TAG" ./*.vsix ./sbom-*.cdx.json ./*.vsix.bundle --clobber
           # The list endpoint is the one that returns drafts; releases/tags/<tag>
           # does not, and undraft needs this id.
-          id=$(gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate \
-                 --jq ".[] | select(.tag_name == \"${TAG}\") | .id" | head -n1)
+          # No pipe into head. Under `set -o pipefail`, head closing the pipe after the
+          # first line SIGPIPEs gh and the pipeline reports 141, which aborts this step
+          # and leaves the release DRAFTED. It needs gh's output to exceed the pipe
+          # buffer to bite, and --paginate makes that a function of how many releases
+          # the repo has -- so it gets likelier with every release, which is the worst
+          # shape for a bug in a release workflow.
+          ids=$(gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate \
+                  --jq ".[] | select(.tag_name == \"${TAG}\") | .id")
+          id=${ids%%$'\n'*}
           [ -n "$id" ] || { echo "no release found for ${TAG}" >&2; exit 1; }
           echo "id=${id}" >> "$GITHUB_OUTPUT"
 
