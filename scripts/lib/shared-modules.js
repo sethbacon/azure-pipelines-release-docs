@@ -50,6 +50,18 @@ const FAMILIES = [
         dirs: [PUBLISH_SRC, CHANGELOG_SRC, MARKDOWN_SRC],
         modules: ['output-variable.ts'],
     },
+    {
+        // Symlink-aware working-directory containment (#123): Changelog's
+        // isWithinWorkingDirectory/realpathOfExistingPrefix realpaths the deepest
+        // existing ancestor on both sides before comparing, unlike a lexical
+        // path.relative/startsWith check, which an in-tree symlink can defeat.
+        // Markdown2Html's include resolver and PublishKbArticle's image-rewrite
+        // extractor each had their own lexical-only version until the suite
+        // replay found the asymmetry -- keep byte-identical so a future fix to
+        // one does not silently leave the others weaker.
+        dirs: [CHANGELOG_SRC, MARKDOWN_SRC, PUBLISH_SRC],
+        modules: ['path-containment.ts'],
+    },
 ];
 
 // Both modules above arrived with the tasks when they migrated from

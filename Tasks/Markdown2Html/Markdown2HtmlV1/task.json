@@ -125,6 +125,7 @@
         "NoInputFilesProvided": "No input files provided.",
         "HtmlWrittenTo": "HTML written to '%s'",
         "OutputVariableRejected": "The value for output variable '%s' failed validation (length or non-printable characters); the variable was not set.",
-        "FrontMatterParseFailed": "Front-matter in '%s' could not be parsed as a YAML mapping and was ignored (defaults used): %s"
+        "FrontMatterParseFailed": "Front-matter in '%s' could not be parsed as a YAML mapping and was ignored (defaults used): %s",
+        "PathEscapesWorkingDirectory": "Output path '%s' resolves outside the working directory."
     }
 }
