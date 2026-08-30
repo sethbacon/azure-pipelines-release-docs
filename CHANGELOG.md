@@ -10,6 +10,15 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.0.2](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.0.1...v1.0.2) (2026-08-28)
+
+
+### Bug Fixes
+
+* **gates:** bound the proxy-parity walk by ROOT, not by the script's own location ([#144](https://github.com/sethbacon/azure-pipelines-release-docs/issues/144)) ([d579a80](https://github.com/sethbacon/azure-pipelines-release-docs/commit/d579a80ab73270769395baf0a89c3392b67f0c6d))
+* **release:** stop piping gh into head, which exits 141 and leaves the release drafted ([#142](https://github.com/sethbacon/azure-pipelines-release-docs/issues/142)) ([5acffc8](https://github.com/sethbacon/azure-pipelines-release-docs/commit/5acffc8b8b29d5bea071d21938fbc9f94c90b0a3))
+* symlink-aware path containment for Markdown2Html/PublishKbArticle ([#141](https://github.com/sethbacon/azure-pipelines-release-docs/issues/141)) ([da4fd47](https://github.com/sethbacon/azure-pipelines-release-docs/commit/da4fd4741ed8cf991525c18a18fc05cbc19f09b5))
+
 ## [1.0.1](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.0.0...v1.0.1) (2026-08-27)
 
 
