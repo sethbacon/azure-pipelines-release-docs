@@ -79,9 +79,15 @@ gh api repos/OWNER/REPO/actions/oidc/customization/sub --jq .sub_claim_prefix
 A rename or transfer after the cutoff moves a legacy repository onto the immutable form as well, so
 the siblings are one repository-settings change away from needing new credentials of their own.
 
-One prerequisite still lives outside this tree: the `marketplace` environment as provisioned permits
-self-review and admin bypass (#50), with no protection on `v*` tags (#51). Both are repository
-settings, and both have to be settled before that environment is load-bearing rather than decorative.
+Two repository-settings prerequisites this doc used to flag as outstanding (#50, #51) are now settled.
+`v*` release tags sit behind an active ruleset (#51). The `marketplace` environment no longer permits
+an admin to bypass its reviewer requirement (`can_admins_bypass: false`) — but it does still permit
+self-review (`prevent_self_review: false`), and that half is deliberate, not an oversight: this is a
+solo-operated repository with no second person available to hold an independent-reviewer role, so
+`prevent_self_review` was set back to `false` rather than leave the environment able to require an
+approval nobody could ever give (#50). The environment is consequently a self-review speed bump, not
+an independent second-party check — an honest, working control for a one-person project, not the
+stronger guarantee the phrase "environment protection" might otherwise imply.
 
 This table is machine-checked: `scripts/check-docs-claims.js` (CI job **Check Documented Claims**)
 reads it on every pull request and compares each row against `.github/workflows/`. The comparison
