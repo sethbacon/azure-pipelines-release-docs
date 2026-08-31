@@ -299,6 +299,7 @@
         "InstanceRequired": "ServiceNow instance is required (set \"instance\" input or provide a service connection).",
         "InvalidInstance": "Invalid ServiceNow instance '%s'. Expected the instance name only (letters, digits, hyphens), e.g. 'mycompany' for mycompany.service-now.com.",
         "AuthTypeRequired": "authType is required.",
+        "UnknownServiceConnectionScheme": "Service connection '%s' has an unrecognized or missing authorization scheme ('%s'); expected UsernamePassword/Basic or OAuth/OAuth2.",
         "OAuthClientCredentialsRequired": "OAuth authentication requires clientId and clientSecret.",
         "SourceKeyFromFrontMatter": "Source key from front-matter '%s': %s",
         "LookingForKbJson": "No article-id resolved yet. Looking for KB article JSON file...",

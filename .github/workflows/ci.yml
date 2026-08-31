@@ -239,6 +239,12 @@ jobs:
       # No install step: the script uses node builtins and `git check-ignore`
       # only, so it runs before and independently of any dependency tree.
       - run: node scripts/check-docs-claims.js
+      # SECURITY.md's documented OIDC subject (owner/repo/environment) vs the
+      # release.yml job that actually requests the token and the extension
+      # manifest's declared repository -- see the script header.
+      - run: node scripts/check-oidc-subject-doc.js
+      - name: Self-test check-oidc-subject-doc.js
+        run: node scripts/test-check-oidc-subject-doc.js
 
   # zizmor scans for workflow SECURITY anti-patterns; it does not check workflow
   # schema, expression syntax or the shell inside `run:`. The workflows ARE this

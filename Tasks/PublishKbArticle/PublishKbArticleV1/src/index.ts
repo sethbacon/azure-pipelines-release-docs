@@ -51,11 +51,18 @@ async function resolveAuth(): Promise<ResolvedAuth> {
             username = tasks.getEndpointAuthorizationParameter(serviceConnection, 'username', false) || undefined;
             password = tasks.getEndpointAuthorizationParameter(serviceConnection, 'password', false) || undefined;
             if (password) tasks.setSecret(password);
-        } else {
+        } else if (scheme === 'oauth' || scheme === 'oauth2') {
             authType = 'oauth';
             clientId = tasks.getEndpointAuthorizationParameter(serviceConnection, 'clientId', false) || undefined;
             clientSecret = tasks.getEndpointAuthorizationParameter(serviceConnection, 'clientSecret', false) || undefined;
             if (clientSecret) tasks.setSecret(clientSecret);
+        } else {
+            // Fail closed on an unrecognized or missing authorization scheme
+            // rather than silently treating it as OAuth: a service connection
+            // whose scheme could not be read (a broken/misconfigured
+            // connection) must not be granted a specific auth treatment the
+            // operator never actually chose.
+            throw new Error(tasks.loc('UnknownServiceConnectionScheme', serviceConnection, scheme || '(none)'));
         }
     }
 
