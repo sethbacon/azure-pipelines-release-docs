@@ -56,6 +56,42 @@ describe('conventional: parsing', () => {
         assert.strictEqual(at('feat', 'new flag', 'BREAKING-CHANGE: removes the old one').breaking, true);
     });
 
+    it('finds a BREAKING CHANGE footer buried in a real squash-merge (COMMIT_MESSAGES) message', () => {
+        // Reproduces this repository's own squash shape verbatim, not a hand-invented one --
+        // see .github/commit-message-check/verify.mjs, whose `body` line is
+        // `source.map(commit => \`* ${commit.message}\`).join('\n\n')` under this repo's actual
+        // squash settings (COMMIT_OR_PR_TITLE / COMMIT_MESSAGES, confirmed live via
+        // `gh api repos/sethbacon/azure-pipelines-release-docs`). This task only ever reads
+        // Azure DevOps history, but the failure mode this guards against -- a footer detector
+        // that only checks the paragraph right after the header and never reaches a footer
+        // buried a few bullets deep in a multi-commit squash -- is the same regardless of which
+        // host produced the squash.
+        const header = 'chore: batch release (#4821)';
+        const originalCommits = [
+            'fix(auth): reject an expired refresh token',
+            'feat(api)!: remove the deprecated v1 export endpoint\n\nBREAKING CHANGE: /api/v1/export is removed; callers must use /api/v2/export',
+        ];
+        const body = originalCommits.map((m) => `* ${m}`).join('\n\n');
+        const squashed = `${header}\n\n${body}`;
+
+        const c = parseCommit('sha', squashed)!;
+        assert.ok(c, 'the PR-title header must still parse as a conventional commit');
+        assert.strictEqual(c.type, 'chore');
+        assert.strictEqual(c.breaking, true, 'a footer several bullets deep in the squashed body must still be found');
+    });
+
+    it('does not false-positive on a squashed bullet that merely mentions "breaking" in prose', () => {
+        const header = 'fix: batch release (#4900)';
+        const originalCommits = [
+            'fix(cache): avoid a breaking change to the eviction order',
+            'docs: note the change above is not breaking for existing callers',
+        ];
+        const body = originalCommits.map((m) => `* ${m}`).join('\n\n');
+        const squashed = `${header}\n\n${body}`;
+
+        assert.strictEqual(parseCommit('sha', squashed)!.breaking, false);
+    });
+
     it('returns null for a non-conventional subject rather than throwing', () => {
         assert.strictEqual(parseCommit('sha', 'update stuff'), null);
         assert.strictEqual(parseCommit('sha', ''), null);
