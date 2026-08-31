@@ -2651,6 +2651,24 @@ describe('PublishKbArticle full-task: real (non-dry-run) execution paths', () =>
         }, tr);
     });
 
+    // A serviceConnection whose authorization scheme is set but not one
+    // resolveAuth() recognizes (e.g. 'Certificate') must be rejected
+    // explicitly, not silently treated as OAuth -- even though OAuth-shaped
+    // clientId/clientSecret parameters happen to be present on the connection.
+    it('ServiceConnectionUnknownSchemeReject — a serviceConnection with an unrecognized authorization scheme is rejected before any network client runs', async () => {
+        const tp = nodePath.join(__dirname, 'ServiceConnectionUnknownSchemeReject.js');
+        const tr: ttm.MockTestRunner = new ttm.MockTestRunner(tp);
+        await tr.runAsync();
+        runValidations(() => {
+            assert.ok(tr.failed, 'task should have failed');
+            assert.ok(
+                tr.errorIssues.some((e) => /unrecognized or missing authorization scheme|UnknownServiceConnectionScheme/.test(e)),
+                `error should mention the unrecognized/missing service connection scheme: ${tr.errorIssues}`,
+            );
+            assert.ok(!/NETWORK_CALLED/.test(tr.stdout + tr.errorIssues.join('\n')), 'no network client should have been invoked');
+        }, tr);
+    });
+
     // #771: resolveAuth() masks clientSecret/password at the point of read, before
     // the instance-required/instance-format checks that can throw ahead of the
     // deferred tasks.setSecret() calls inside getOAuthToken()/basicAuthHeader().

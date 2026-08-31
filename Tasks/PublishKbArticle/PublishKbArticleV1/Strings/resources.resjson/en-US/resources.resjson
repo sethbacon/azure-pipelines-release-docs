@@ -46,6 +46,7 @@
   "loc.messages.InstanceRequired": "ServiceNow instance is required (set \"instance\" input or provide a service connection).",
   "loc.messages.InvalidInstance": "Invalid ServiceNow instance '%s'. Expected the instance name only (letters, digits, hyphens), e.g. 'mycompany' for mycompany.service-now.com.",
   "loc.messages.AuthTypeRequired": "authType is required.",
+  "loc.messages.UnknownServiceConnectionScheme": "Service connection '%s' has an unrecognized or missing authorization scheme ('%s'); expected UsernamePassword/Basic or OAuth/OAuth2.",
   "loc.messages.OAuthClientCredentialsRequired": "OAuth authentication requires clientId and clientSecret.",
   "loc.messages.SourceKeyFromFrontMatter": "Source key from front-matter '%s': %s",
   "loc.messages.LookingForKbJson": "No article-id resolved yet. Looking for KB article JSON file...",
