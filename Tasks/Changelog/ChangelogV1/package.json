@@ -19,7 +19,7 @@
   },
   "minimumAgentVersion": "3.232.1",
   "dependencies": {
-    "@4cloudguru/pipeline-task-core": "^0.7.1",
+    "@4cloudguru/pipeline-task-core": "^0.8.0",
     "azure-pipelines-task-lib": "^5.279.0"
   },
   "overrides": {
