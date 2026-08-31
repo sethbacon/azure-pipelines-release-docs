@@ -10,6 +10,31 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.0](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.0.2...v1.1.0) (2026-08-31)
+
+
+### Features
+
+* **ci:** adopt the shared Dependabot CI-health check ([#154](https://github.com/sethbacon/azure-pipelines-release-docs/issues/154)) ([a997061](https://github.com/sethbacon/azure-pipelines-release-docs/commit/a9970614e9d37ede8f026bf7fbbf3c92009b77d7))
+
+
+### Bug Fixes
+
+* **release-docs:** reconcile drifted task metadata and prune dead coverage-gate entries ([#147](https://github.com/sethbacon/azure-pipelines-release-docs/issues/147)) ([de1b130](https://github.com/sethbacon/azure-pipelines-release-docs/commit/de1b1303115dc51a62b2d140331575960415e9e0))
+* **security:** close early-throw and git argv gaps in release-docs tasks ([#151](https://github.com/sethbacon/azure-pipelines-release-docs/issues/151)) ([7ea15f1](https://github.com/sethbacon/azure-pipelines-release-docs/commit/7ea15f1a8bddab37421d1b40990179f44a401409))
+* **security:** correct error-handling gaps in ChangelogV1/PublishKbArticleV1 ([#126](https://github.com/sethbacon/azure-pipelines-release-docs/issues/126), [#130](https://github.com/sethbacon/azure-pipelines-release-docs/issues/130)) ([#155](https://github.com/sethbacon/azure-pipelines-release-docs/issues/155)) ([8a11b11](https://github.com/sethbacon/azure-pipelines-release-docs/commit/8a11b113e05fd931c65a8b0f10e8d3f80b5a13e5))
+* **security:** document converter.ts containment decision, add getKbCategories injection test ([#123](https://github.com/sethbacon/azure-pipelines-release-docs/issues/123), [#127](https://github.com/sethbacon/azure-pipelines-release-docs/issues/127)) ([#157](https://github.com/sethbacon/azure-pipelines-release-docs/issues/157)) ([f409395](https://github.com/sethbacon/azure-pipelines-release-docs/commit/f409395a4e01e9867c34255b468c33428bdd7060))
+* **security:** reject unrecognized PublishKbArticle service-connection auth schemes ([#148](https://github.com/sethbacon/azure-pipelines-release-docs/issues/148)) ([b49c88e](https://github.com/sethbacon/azure-pipelines-release-docs/commit/b49c88ea790acccb2e99f7f10056ce70f8d195f6))
+* **security:** scope path containment to content-supplied paths only ([#145](https://github.com/sethbacon/azure-pipelines-release-docs/issues/145)) ([4a4900d](https://github.com/sethbacon/azure-pipelines-release-docs/commit/4a4900debbfdadb1f0e56796649d953807c896bb))
+* **security:** wire coverage into CI, document README credentials, populate PROVENANCE ([#125](https://github.com/sethbacon/azure-pipelines-release-docs/issues/125), [#128](https://github.com/sethbacon/azure-pipelines-release-docs/issues/128), [#129](https://github.com/sethbacon/azure-pipelines-release-docs/issues/129)) ([#158](https://github.com/sethbacon/azure-pipelines-release-docs/issues/158)) ([898f7e1](https://github.com/sethbacon/azure-pipelines-release-docs/commit/898f7e1ad60f282d7c903ebe88905ab96a8f4512))
+
+
+### Documentation
+
+* **security:** document manifestPath's operator-only provenance ([#159](https://github.com/sethbacon/azure-pipelines-release-docs/issues/159)) ([711f079](https://github.com/sethbacon/azure-pipelines-release-docs/commit/711f0790cad81bf25ee1a8e45132f107012a493f))
+* **security:** reflect the marketplace environment's resolved self-review decision ([#152](https://github.com/sethbacon/azure-pipelines-release-docs/issues/152)) ([5c6021d](https://github.com/sethbacon/azure-pipelines-release-docs/commit/5c6021d2abc8377a658e7e7d7ae67332c95151d0))
+* update overview, SECURITY, and README for the implemented extension ([#149](https://github.com/sethbacon/azure-pipelines-release-docs/issues/149)) ([6ed951e](https://github.com/sethbacon/azure-pipelines-release-docs/commit/6ed951e4e5d7f05235a2b2a1ba4c581f016dfa10))
+
 ## [1.0.2](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.0.1...v1.0.2) (2026-08-28)
 
 
