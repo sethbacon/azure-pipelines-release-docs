@@ -326,11 +326,39 @@ describe('git: history reading', () => {
         assert.strictEqual(latestReleaseTag(() => { throw new Error('no tags'); }, 'v'), null);
     });
 
+    it('warns when the tag-list command genuinely fails, distinguishing it from "never tagged"', () => {
+        const warnings: string[] = [];
+        const orig = tasks.warning;
+        (tasks as unknown as Record<string, unknown>)['warning'] = (m: string) => { warnings.push(m); };
+        try {
+            const tag = latestReleaseTag(() => { throw new Error('not a git repository'); }, 'v');
+            assert.strictEqual(tag, null);
+            assert.strictEqual(warnings.length, 1, 'a genuine failure must warn exactly once');
+            assert.ok(warnings[0].includes('not a git repository'), warnings[0]);
+        } finally {
+            (tasks as unknown as Record<string, unknown>)['warning'] = orig;
+        }
+    });
+
     it('bounds the commit count it requests', () => {
         const calls: string[][] = [];
         commitsSince((args) => { calls.push(args); return ''; }, 'v1.0.0', 250);
         assert.ok(calls[0].some((a) => a === '--max-count=250'));
         assert.ok(calls[0].includes('v1.0.0..HEAD'));
+    });
+
+    it('warns when the log command genuinely fails, distinguishing it from an empty range', () => {
+        const warnings: string[] = [];
+        const orig = tasks.warning;
+        (tasks as unknown as Record<string, unknown>)['warning'] = (m: string) => { warnings.push(m); };
+        try {
+            const commits = commitsSince(() => { throw new Error('bad revision'); }, 'v1.0.0', 10);
+            assert.deepStrictEqual(commits, []);
+            assert.strictEqual(warnings.length, 1, 'a genuine failure must warn exactly once');
+            assert.ok(warnings[0].includes('bad revision'), warnings[0]);
+        } finally {
+            (tasks as unknown as Record<string, unknown>)['warning'] = orig;
+        }
     });
 
     it('passes the range as one argv element, never as an interpolated string', () => {
@@ -410,11 +438,9 @@ describe('release-pr: description and branch', () => {
         assert.strictEqual(releaseBranchName('refs/heads/main'), 'release/main');
     });
 
-    it('fits a long description under the 4000-character cap Azure DevOps rejects past', () => {
+    it('rejects a description over the 4000-character cap Azure DevOps rejects past, instead of truncating it', () => {
         const long = 'x'.repeat(MAX_DESCRIPTION + 500);
-        const fitted = fitDescription(long, 'https://example.invalid/notes');
-        assert.ok(fitted.length <= MAX_DESCRIPTION, `got ${fitted.length}`);
-        assert.ok(fitted.includes('Truncated'));
+        assert.throws(() => fitDescription(long), /4000/);
     });
 
     it('leaves a short description untouched', () => {
@@ -426,12 +452,9 @@ describe('release-pr: description and branch', () => {
         assert.strictEqual(fitDescription(exact), exact);
     });
 
-    it('truncates a description one character past the cap', () => {
+    it('rejects a description one character past the cap', () => {
         const overByOne = 'x'.repeat(MAX_DESCRIPTION + 1);
-        const fitted = fitDescription(overByOne);
-        assert.ok(fitted.length <= MAX_DESCRIPTION, `got ${fitted.length}`);
-        assert.ok(fitted.includes('Truncated'));
-        assert.notStrictEqual(fitted, overByOne);
+        assert.throws(() => fitDescription(overByOne), /4000/);
     });
 });
 
@@ -516,6 +539,28 @@ describe('ado-client: token and retry policy', () => {
         });
         assert.strictEqual(result.status, 403);
         assert.strictEqual(calls, 1, 'a 403 must be asked exactly once');
+    });
+
+    it('retries a GET on a bare transport failure (no captured status) — idempotent, safe to repeat', async () => {
+        let calls = 0;
+        const result = await adoRequest(connection, 'GET', endpoint, undefined, async () => {
+            calls += 1;
+            if (calls < 2) throw new Error('ECONNRESET');
+            return { status: 200, body: '{"ok":true}' };
+        });
+        assert.strictEqual(result.status, 200);
+        assert.strictEqual(calls, 2);
+    });
+
+    it('does NOT retry a PATCH on a bare transport failure — it may have already reached the server', async () => {
+        let calls = 0;
+        await assert.rejects(
+            adoRequest(connection, 'PATCH', endpoint, { a: 1 }, async () => {
+                calls += 1;
+                throw new Error('ECONNRESET');
+            }),
+        );
+        assert.strictEqual(calls, 1, 'a PATCH must not retry an ambiguous bare transport failure');
     });
 
     it('sends a JSON body as a Buffer with a content type', async () => {
@@ -624,6 +669,18 @@ describe('entry point: nothing releasable', () => {
         const scratch = path.join(__dirname, '.scratch', 'entrypoint-noop');
         const changelog = fs.readFileSync(path.join(scratch, 'CHANGELOG.md'), 'utf8');
         assert.strictEqual(changelog, '# Changelog\n\nAll notable changes.\n', 'an all-chore batch must write nothing');
+    });
+});
+
+describe('entry point: a versionFiles entry names a file that does not exist (#126)', () => {
+    it('fails the task instead of warning and shipping the release un-bumped', () => {
+        const result = cp.spawnSync(process.execPath, [path.join(__dirname, 'EntryPointVersionFileMissing.js')], {
+            encoding: 'utf8',
+            timeout: 120000,
+        });
+        const stdout = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+        assert.ok(/task\.complete result=Failed/.test(stdout), `expected the task to fail:\n${stdout.slice(0, 2000)}`);
+        assert.ok(/manifest\.json/.test(stdout), `expected the missing file's path in the failure message:\n${stdout.slice(0, 2000)}`);
     });
 });
 

@@ -395,16 +395,32 @@ async function run() {
                 ? path.resolve(imageBaseDir)
                 : htmlFile ? path.dirname(path.resolve(htmlFile)) : process.cwd();
 
-            const result = await processArticleImages(
-                instance, headers, sysId, articleContent, baseDir, /* failOnMissing */ !force,
-            );
+            try {
+                const result = await processArticleImages(
+                    instance, headers, sysId, articleContent, baseDir, /* failOnMissing */ !force,
+                );
 
-            if (result.uploaded > 0) {
-                await updateArticleBody(instance, headers, sysId, result.html);
-                console.log(tasks.loc('ImagesRewritten', result.uploaded));
-            }
-            if (result.missing.length > 0) {
-                console.log(tasks.loc('ImagesMissingSummary', result.missing.length));
+                if (result.uploaded > 0) {
+                    await updateArticleBody(instance, headers, sysId, result.html);
+                    console.log(tasks.loc('ImagesRewritten', result.uploaded));
+                }
+                if (result.missing.length > 0) {
+                    console.log(tasks.loc('ImagesMissingSummary', result.missing.length));
+                }
+            } catch (error) {
+                // executeCreateOrUpdate above may already have set workflow_state to
+                // 'published' as part of the SAME create/update call -- ServiceNow has
+                // no separate publish step on that path. If image processing then
+                // fails, the article can already be live with its body still pointing
+                // at local, unrewritten image paths. Self-healing on the next
+                // successful run (processArticleImages' filename-based idempotency
+                // finds and completes it), but an operator watching THIS run should
+                // know the article may already be publicly visible in that state, not
+                // just that the task failed.
+                if (article['workflow_state'] === 'published') {
+                    tasks.warning(tasks.loc('ArticlePublishedWithUnrewrittenImages', sanitizeForSingleLineEcho(sysId)));
+                }
+                throw error;
             }
         }
 

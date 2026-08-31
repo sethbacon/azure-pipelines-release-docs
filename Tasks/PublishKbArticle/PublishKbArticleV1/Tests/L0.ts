@@ -1906,6 +1906,36 @@ describe('syncImageAttachment', () => {
         assert.strictEqual(deleteScope.isDone(), false, 'the old attachment must not be deleted when the upload fails');
     });
 
+    it('does not double-retry the DELETE of a replaced attachment (deleteAttachment already retries internally, #126)', async function () {
+        this.timeout(10000);
+        nock(BASE_URL)
+            .post('/api/now/attachment/file')
+            .query(true)
+            .reply(201, { result: { sys_id: 'ea70ea70ea70ea70ea70ea70ea70ea70' } });
+
+        let deleteCalls = 0;
+        nock(BASE_URL)
+            .delete('/api/now/attachment/old_att')
+            .times(10)
+            .reply(() => {
+                deleteCalls += 1;
+                return [500, { error: { message: 'persistent failure' } }];
+            });
+
+        await assert.rejects(
+            () => syncImageAttachment(
+                INSTANCE, HEADERS, 'art1', tmpFile, 'pic.png',
+                [{ sys_id: 'old_att', file_name: 'pic.png', hash: 'DIFFERENT' }],
+            ),
+        );
+        // deleteAttachment's own internal retry (withRetry, default retries: 3,
+        // i.e. up to 4 total attempts) is the ONLY retry layer now. Before the fix,
+        // syncImageAttachment wrapped the whole deleteAttachment call in a second
+        // withRetry, so a persistent failure made up to 4 x 4 = 16 DELETE attempts
+        // instead of up to 4.
+        assert.ok(deleteCalls <= 4, `expected at most 4 DELETE attempts (one retry layer), got ${deleteCalls}`);
+    });
+
     it('refuses to read/upload a local image file larger than MAX_ATTACHMENT_BYTES, without making any HTTP call (#677)', async () => {
         const dir = fs.mkdtempSync(nodePath.join(os.tmpdir(), 'att-huge-'));
         const hugeFile = nodePath.join(dir, 'huge.png');
@@ -2624,6 +2654,20 @@ describe('PublishKbArticle full-task: real (non-dry-run) execution paths', () =>
             assert.ok(tr.succeeded, 'task should have succeeded');
             assert.ok(/Rewrote 1 image reference\(s\) to ServiceNow attachments|ImagesRewritten 1/.test(tr.stdout), `should log the image-upload result: ${tr.stdout}`);
             assert.ok(tr.stdout.includes('##[MOCK] updateArticleBody called with text:'), `updateArticleBody should have been called with the rewritten body: ${tr.stdout}`);
+        }, tr);
+    });
+
+    it('RealUploadImagesFailsWhilePublished — warns that a published article may have unrewritten images when the upload phase fails (#126)', async () => {
+        const tp = nodePath.join(__dirname, 'RealUploadImagesFailsWhilePublished.js');
+        const tr: ttm.MockTestRunner = new ttm.MockTestRunner(tp);
+        await tr.runAsync();
+        runValidations(() => {
+            assert.strictEqual(tr.succeeded, false, 'task should have failed');
+            assert.ok(
+                /already in the 'published' workflow state but image upload failed|ArticlePublishedWithUnrewrittenImages/.test(tr.stdout),
+                `should warn about the published-with-unrewritten-images risk: ${tr.stdout}`,
+            );
+            assert.ok(tr.stdout.includes('existing-art-id'), `warning should name the article's sys_id: ${tr.stdout}`);
         }, tr);
     });
 
