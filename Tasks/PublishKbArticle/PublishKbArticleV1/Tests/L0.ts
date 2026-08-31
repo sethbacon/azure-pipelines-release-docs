@@ -110,6 +110,10 @@ describe('servicenow-client sysparm_query injection guard', () => {
         await assert.rejects(() => listArticleAttachments(INSTANCE, HEADERS, 'id^ORtable_sys_id=1'), GUARD_MSG);
     });
 
+    it('getKbCategories rejects a kbId containing ^ (encoded-query control char, #127)', async () => {
+        await assert.rejects(() => client.getKbCategories(INSTANCE, HEADERS, 'kb^label=evil'), GUARD_MSG);
+    });
+
     it('listArticleAttachments rejects an articleId containing a newline', async () => {
         await assert.rejects(() => listArticleAttachments(INSTANCE, HEADERS, 'id\nvalue'), GUARD_MSG);
     });
