@@ -156,6 +156,11 @@ export async function processFrontMatterDriven(
     }
 
     const htmlDocument = generateHtmlDocument([combinedHtml], title);
+    // outputPath is deliberately NOT containment-checked (#123): every published
+    // YAML example points it at $(Build.ArtifactStagingDirectory), a sibling of
+    // the sources directory, not a subdirectory of it -- unlike includes.ts's
+    // primaryDir, there is no working-directory-style boundary input here to
+    // check against, and inventing one would break every documented usage.
     fs.mkdirSync(path.dirname(path.resolve(outputPath)), { recursive: true });
     fs.writeFileSync(path.resolve(outputPath), htmlDocument, 'utf8');
 
@@ -228,6 +233,8 @@ export async function processFileList(
     }
 
     const htmlDocument = generateHtmlDocument(contentBlocks, title);
+    // See processFrontMatterDriven's identical comment above: outputPath is
+    // deliberately not containment-checked here either (#123), same reasoning.
     fs.mkdirSync(path.dirname(path.resolve(outputPath)), { recursive: true });
     fs.writeFileSync(path.resolve(outputPath), htmlDocument, 'utf8');
 }
