@@ -132,7 +132,10 @@ npm run test:publish             # the publish wrapper keeps the Entra token off
 audit it checks the scope of. `Lint GitHub Actions` (actionlint) and `Check Documented Claims` are
 separate jobs and are both required contexts on `main`. The three `*release-readiness*`/`*publish*`
 commands run in `release.yml`'s `guard` job, because they answer questions about a release rather
-than about a commit; `check:release-readiness` fails today, by design, and says why.
+than about a commit; `check:release-readiness` passes today — the four preconditions it checks
+(something to publish, a release-please config that creates the tag, SBOM coverage tracking the task
+tree, and a signing identity naming this repository) all hold now that the three tasks exist and the
+extension has released seven times.
 `npm run build:release` runs `check:composition` before composing
 `./build`, and `scripts/copy-build.js` then refuses to compose a package containing a symlink, a
 secret-shaped file, a path outside a known task directory, or anything the allowlist does not cover —
