@@ -65,11 +65,18 @@ const FAMILIES = [
 ];
 
 // Both modules above arrived with the tasks when they migrated from
-// azure-pipelines-terraform, and both repositories still carry byte-identical
-// copies. Registering them as cross-repository copies as well would require the
-// @shared-module provenance headers, which is a separate decision about which
-// repository is upstream now that the tasks live here; until that is settled the
-// within-repo families are what this gate enforces.
-const PROVENANCE = [];
+// azure-pipelines-terraform, which still carries its own (deprecated, #1046)
+// copies of these two tasks. A cross-repo byte diff isn't available in CI, so
+// what's checkable is that each copy still SAYS where it came from and
+// whether it's still in sync, via the @shared-module header
+// scripts/check-shared-modules.js scans for. Registering the CANONICAL
+// (Markdown2Html) dir of each file is enough -- the within-repo FAMILIES
+// entries above already keep PublishKbArticle's copy byte-identical to it.
+const UPSTREAM = 'azure-pipelines-terraform';
+
+const PROVENANCE = [
+    { dir: MARKDOWN_SRC, file: 'uri-scheme-guard.ts', upstream: UPSTREAM },
+    { dir: MARKDOWN_SRC, file: 'html-sanitizer.ts', upstream: UPSTREAM },
+];
 
 module.exports = { FAMILIES, PROVENANCE };

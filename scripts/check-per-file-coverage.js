@@ -97,6 +97,14 @@ const SECURITY_TIER = new Set([
     // Path-containment guard for local <img src> references rewritten into
     // published KB HTML.
     'Tasks/PublishKbArticle/PublishKbArticleV1/src/image-rewrite.js',
+    // ChangelogV1's REST transport (double-masks the ADO access token, both raw
+    // and base64-encoded forms, before either could reach a log or error
+    // message) and its only child_process invocation surface (argv-only git
+    // history reads, no string-concatenated command ever allowed) -- genuinely
+    // new code introduced with ChangelogV1, matching every other entry's own
+    // credential/injection-surface criteria (#125).
+    'Tasks/Changelog/ChangelogV1/src/ado-client.js',
+    'Tasks/Changelog/ChangelogV1/src/git.js',
 ]);
 
 // Files allowed BELOW their applicable floor (DEFAULT_FLOOR, or SECURITY_FLOOR

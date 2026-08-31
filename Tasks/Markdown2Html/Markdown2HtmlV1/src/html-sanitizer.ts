@@ -1,3 +1,8 @@
+// @shared-module: copied from azure-pipelines-terraform (Tasks/Markdown2Html/Markdown2HtmlV1/src/html-sanitizer.ts)
+// @shared-module-policy: Apply allowlist-sanitizer fixes to both copies until
+//   the terraform-side Markdown2Html/PublishKbArticle tasks are removed (#1046).
+//   Enforced by scripts/check-shared-modules.js.
+// @shared-module-status: IN-SYNC
 /**
  * Shared HTML allowlist sanitizer for the two consumers of the ServiceNow
  * KB-publishing pipeline: Markdown2Html's render-time `convertMarkdownToHtml()`
