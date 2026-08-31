@@ -26,10 +26,15 @@ external systems (a ServiceNow instance, a Git remote). The surfaces that matter
 - **Supply chain** — the integrity of the `.vsix` and of the path that publishes it. See
   [Supply chain controls](#supply-chain-controls).
 
-Note the tense. No task is implemented in this repository, so the first four bullets describe the
-code this extension is being built to hold rather than code it holds today. They are written down now
-because they are what the design has to answer for, and a task's review is the wrong place to be
-discovering them for the first time.
+Note the tense. All three tasks are implemented today (`Tasks/Changelog/ChangelogV1`,
+`Tasks/Markdown2Html/Markdown2HtmlV1`, `Tasks/PublishKbArticle/PublishKbArticleV1`), each with a
+`src/` tree and its own test suite, and the extension has published seven Marketplace releases
+(`v0.2.0` through `v1.0.2`). The bullets above are the surfaces those implementations are checked
+against, not surfaces still being designed toward: `PublishKbArticleV1`'s HTML sanitizer and
+pre-publish content gate cover stored XSS, its ServiceNow client rejects a query value containing `^`
+or a newline before it reaches `sysparm_query`, and credential inputs are masked with
+`tasks.setSecret` before first use. This repository is also now in scope for the estate's
+`ado-extension` signature replay for the same reason — see [Defect classes](#defect-classes).
 
 ## Supply chain controls
 
@@ -94,7 +99,7 @@ staying still would have been the same drift pointing the other way.
 | `vsix-signature`               | enforced | `sbom-and-sign` signs the `.vsix` with keyless cosign and attaches a build-provenance attestation. Both the draft release and the publish re-run `cosign verify-blob` against this repository's own workflow identity first, so the bytes published are provably the bytes signed.                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `workflow-hardening`           | enforced | `.github/workflows/workflow-hardening.yml` calls `4cloudguru/shared-workflows`' gate and fails the build if any `uses:` is not pinned to a full commit SHA with a version comment, any npm install runs without `--ignore-scripts`, any job declares no `timeout-minutes`, or any job's egress policy is `audit` without a recorded reason on the step. Every one of those four was true of this tree and enforced by nothing (#21, #22, #23, #30). The checker is taken from that repository at the pinned commit, so there is no local copy to weaken; its 23-case mutation self-test breaks each property in a fixture and asserts the gate names it, and runs there beside the checker rather than here beside a fork of it. |
 | `dependency-scan`              | enforced | `.github/workflows/weekly-security.yml` runs OSV-Scanner over the tree every Monday and on demand, covering advisories the npm registry's own database does not carry, and re-runs the whole of CI as a drift canary for the weeks when nothing merges. One limitation is load-bearing and is stated rather than inherited: `google/osv-scanner-action` is a **Docker action on a mutable image tag**, so the full-SHA pin fixes its `action.yml` and not the scanner image `ghcr.io/google/osv-scanner-action:v2.5.0` that action runs. Accepted, with reasoning and date, under [Residual risks](#residual-risks).                                                                                                             |
-| `sbom-attestation`             | enforced | `sbom-and-sign` generates a CycloneDX SBOM of the extension's production closure and attests it to the `.vsix`. `@cyclonedx/cyclonedx-npm` is a devDependency again, and this time a workflow invokes it. With no tasks yet the SBOM has no third-party components, which is the truth about a `.vsix` that bundles none; `scripts/check-release-readiness.js` fails the release the day a task lands without an SBOM of its own, so that emptiness cannot outlive the empty tree.                                                                                                                                                                                                                                               |
+| `sbom-attestation`             | enforced | `sbom-and-sign` generates a CycloneDX SBOM for the extension root and one per task (`sbom-extension.cdx.json`, `sbom-changelogv1.cdx.json`, `sbom-markdown2htmlv1.cdx.json`, `sbom-publishkbarticlev1.cdx.json`) and attests each to the `.vsix`. `scripts/check-release-readiness.js` fails the release if a task ever lands without a matching SBOM step, so this coverage cannot silently fall behind the task tree again.                                                                                                                                                                                                                                                |
 
 <!-- controls:end -->
 
@@ -179,13 +184,16 @@ dependency to inspect (#20).
 ## Defect classes
 
 This repository is in scope for the estate's structural signature replay, and `replay` blocks a merge
-here. It is in scope under a **signature-free kind**: it has no `Tasks/` tree, and pointing the
-thirteen `ado-extension` signatures at an empty task surface would make each of them enumerate
-nothing and exit 2, which is could-not-run rather than clean. Those thirteen classes are the
-specification this extension's tasks are written against — each is expected to have a class test and a
-recorded mutation proving that test detects the defect — and they start being replayed against this
-repository on the day `Markdown2HtmlV1` and `PublishKbArticleV1` land here and the kind flips. The
-rationale is in the header of `.github/workflows/signature-replay.yml`; the onboarding detail is in
+here. It is in scope under the **`ado-extension`** kind — the same one `azure-pipelines-terraform`
+and `azure-pipelines-packer` carry — now that `Tasks/` holds real code: the thirteen `ado-extension`
+signatures (`artifact-trust`, `capture-output-protection`, `credential-input-type`, `docs-claims`,
+`egress-authorization`, `enforced-disciplines`, `hardened-temp-writes`, `network-retry`,
+`output-boundary`, `premask-emission`, `prototype-safe-lookup`, `provider-auth-failclosed`,
+`proxy-parity`) enumerate real call sites in this repository's replay runs, rather than exiting 2 as
+could-not-run over an empty surface the way they did before `ChangelogV1`, `Markdown2HtmlV1` and
+`PublishKbArticleV1` landed. Each is a class test with a recorded mutation proving it detects the
+defect it is named for. The rationale is in the header of
+`.github/workflows/signature-replay.yml`; the onboarding detail is in
 [`docs/initiatives/`](https://github.com/4cloudguru/pipeline-task-core/tree/main/docs/initiatives)
 in `pipeline-task-core`.
 
@@ -204,11 +212,10 @@ Recorded here as they are accepted, with the reasoning and the decision date.
   Dependabot PR needs an admin merge after confirming it touches nothing the signatures analyse.
 - **`.github/workflows/release.yml` runs entirely on `egress-policy: audit`** (2026-08-19, #23). It
   is the most privileged workflow in the repository — `id-token`, `attestations` and `contents:
-  write` — and it has never executed, because `azure-devops-extension.json` declares no
-  contributions and the `guard` job stops every tag. There is therefore no observed egress record to
-  build an allowlist from, and a guessed one fails a first release after a human has approved the
-  environment gate. Each of its seven jobs carries the reason on the step; derive the lists from the
-  first real run's harden-runner summaries and flip them then.
+  write` — and it has now run seven times (`v0.2.0` through `v1.0.2`), all successfully, so an
+  observed egress record exists to build an allowlist from. That flip has not been made: every job
+  still reads `egress-policy: audit`, with the reason recorded on the step. Derive the lists from
+  those seven runs' harden-runner summaries and flip them.
 - **OSV-Scanner runs as a Docker action on a mutable image tag** (2026-08-19, #58). The `uses:` in
   `.github/workflows/weekly-security.yml` is pinned to a full commit SHA, and what that SHA pins is
   the action's `action.yml`, whose entire substance is
