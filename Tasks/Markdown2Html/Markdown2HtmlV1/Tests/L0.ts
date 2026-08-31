@@ -856,4 +856,14 @@ describe('Markdown2Html entry point (src/index.ts)', function () {
             fs.rmSync(path.join(os.tmpdir(), 'md2html-entrypoint-missing'), { recursive: true, force: true });
         }
     });
+
+    it('reports a clean Failed result when setResourcePath throws, instead of an unhandled-rejection crash (finding 1 of #133)', async () => {
+        const tr = new ttm.MockTestRunner(path.join(__dirname, 'EntryPointSetResourcePathThrows.js'));
+        await tr.runAsync();
+        assert.ok(tr.failed, 'the entry point must fail closed, not crash uncaught. stdout: ' + tr.stdout);
+        assert.ok(
+            tr.errorIssues.some((m) => m.includes('boom-from-setResourcePath')),
+            'the thrown message must reach the Failed result. errors: ' + tr.errorIssues + ' stdout: ' + tr.stdout
+        );
+    });
 });

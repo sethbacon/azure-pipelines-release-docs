@@ -2495,6 +2495,25 @@ describe('PublishKbArticle full-task: instance SSRF guard', () => {
     });
 });
 
+describe('PublishKbArticle full-task: a throw during early setup is reported, not crashed', () => {
+    before(() => {
+        (ttm.MockTestRunner.prototype as unknown as { getNodePath: () => string }).getNodePath = function () {
+            return process.execPath;
+        };
+    });
+
+    it('reports a clean Failed result when setResourcePath throws, instead of an unhandled-rejection crash (finding 1 of #133)', async () => {
+        const tp = nodePath.join(__dirname, 'EntryPointSetResourcePathThrows.js');
+        const tr: ttm.MockTestRunner = new ttm.MockTestRunner(tp);
+        await tr.runAsync();
+        assert.ok(tr.failed, 'the entry point must fail closed, not crash uncaught. stdout: ' + tr.stdout);
+        assert.ok(
+            tr.errorIssues.some((m) => m.includes('boom-from-setResourcePath')),
+            'the thrown message must reach the Failed result. errors: ' + tr.errorIssues + ' stdout: ' + tr.stdout
+        );
+    });
+});
+
 // ===========================================================================
 // PublishKbArticle full-task: real (non-dry-run) execution paths
 //

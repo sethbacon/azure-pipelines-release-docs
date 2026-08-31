@@ -626,3 +626,16 @@ describe('entry point: nothing releasable', () => {
         assert.strictEqual(changelog, '# Changelog\n\nAll notable changes.\n', 'an all-chore batch must write nothing');
     });
 });
+
+describe('entry point: a throw during early setup is reported, not crashed', () => {
+    it('reports a clean Failed result when setResourcePath throws, instead of an unhandled-rejection crash (finding 1 of #133)', () => {
+        const result = cp.spawnSync(process.execPath, [path.join(__dirname, 'EntryPointSetResourcePathThrows.js')], {
+            encoding: 'utf8',
+            timeout: 120000,
+        });
+        const stdout = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+        assert.strictEqual(result.status, 0, `the task process must exit cleanly, not crash uncaught:\n${stdout.slice(0, 2000)}`);
+        assert.ok(/task\.complete result=Failed/.test(stdout), `expected a Failed result to be reported:\n${stdout.slice(0, 2000)}`);
+        assert.ok(/boom-from-setResourcePath/.test(stdout), `expected the thrown message to reach the Failed result:\n${stdout.slice(0, 2000)}`);
+    });
+});
