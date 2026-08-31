@@ -635,7 +635,18 @@ describe('entry point: a throw during early setup is reported, not crashed', () 
         });
         const stdout = `${result.stdout ?? ''}${result.stderr ?? ''}`;
         assert.strictEqual(result.status, 0, `the task process must exit cleanly, not crash uncaught:\n${stdout.slice(0, 2000)}`);
-        assert.ok(/task\.complete result=Failed/.test(stdout), `expected a Failed result to be reported:\n${stdout.slice(0, 2000)}`);
-        assert.ok(/boom-from-setResourcePath/.test(stdout), `expected the thrown message to reach the Failed result:\n${stdout.slice(0, 2000)}`);
+        // The raw message, with no "Unhandled: " prefix and no accompanying stack-trace
+        // issue, proves the task's OWN catch block handled this -- not azure-pipelines-
+        // task-lib's generic process-level uncaughtException/unhandledRejection fallback
+        // (registered as an import side effect in task.js), which reports a
+        // differently-worded "Unhandled: <message>" result instead.
+        assert.ok(
+            /task\.complete result=Failed;\]boom-from-setResourcePath$/m.test(stdout),
+            `expected the task's own catch to report the raw message with no wrapper:\n${stdout.slice(0, 2000)}`
+        );
+        assert.ok(
+            !/Unhandled: boom-from-setResourcePath/.test(stdout),
+            `must not fall through to azure-pipelines-task-lib's generic unhandled-exception reporting:\n${stdout.slice(0, 2000)}`
+        );
     });
 });

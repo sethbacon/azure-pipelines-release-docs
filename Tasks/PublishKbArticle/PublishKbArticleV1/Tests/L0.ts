@@ -2507,9 +2507,16 @@ describe('PublishKbArticle full-task: a throw during early setup is reported, no
         const tr: ttm.MockTestRunner = new ttm.MockTestRunner(tp);
         await tr.runAsync();
         assert.ok(tr.failed, 'the entry point must fail closed, not crash uncaught. stdout: ' + tr.stdout);
-        assert.ok(
-            tr.errorIssues.some((m) => m.includes('boom-from-setResourcePath')),
-            'the thrown message must reach the Failed result. errors: ' + tr.errorIssues + ' stdout: ' + tr.stdout
+        // Exactly one error issue, with the raw message and no "Unhandled: " prefix,
+        // proves the task's OWN catch block handled this -- not azure-pipelines-
+        // task-lib's generic process-level uncaughtException/unhandledRejection
+        // fallback (registered as an import side effect in task.js), which reports a
+        // differently-worded "Unhandled: <message>" result plus a second, stack-trace
+        // issue instead.
+        assert.deepStrictEqual(
+            tr.errorIssues,
+            ['boom-from-setResourcePath'],
+            'the task\'s own catch must report the raw message with no wrapper and no extra issues. errors: ' + tr.errorIssues + ' stdout: ' + tr.stdout
         );
     });
 });
