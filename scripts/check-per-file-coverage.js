@@ -71,43 +71,9 @@ const SECURITY_BRANCHES_FLOOR = 50;
 // one copy of a shared module. Keys are repo-relative paths to the
 // INSTRUMENTED file, same convention as EXCEPTIONS below.
 const SECURITY_TIER = new Set([
-    // "The single most security-critical module" per its own header: the
-    // fail-closed redaction core standing between raw plan/state values and a
-    // build-attachment-visible (not secret-masked) pipeline artifact.
-    'Tasks/TerraformTask/TerraformTaskV5/src/results/redact.js',
-    // Freeform-text safety for apply/state diagnostics: known-secret literal
-    // removal + PEM/high-entropy heuristic (scrubSecrets), plus CRLF/logging-
-    // command injection stripping for the attachment name (sanitizeAttachmentName).
-    // The single-copy producer-side sibling of redact.js -- the last redaction
-    // layer before diagnostic text becomes a build-visible (not secret-masked)
-    // attachment; belongs in the same tier as redact.js it sits beside.
-    'Tasks/TerraformTask/TerraformTaskV5/src/results/secret-scrub.js',
-    // SSRF/token-exfiltration guard for the host the ADO OIDC bearer JWT is
-    // exchanged with for an OCI UPST.
-    'Tasks/TerraformTask/TerraformTaskV5/src/oci-token-exchange.js',
-    // GPG signature verification gating trust in downloaded HashiCorp/Sentinel
-    // release binaries. Byte-identical parity family across both listed tasks.
-    'Tasks/TerraformInstaller/TerraformInstallerV1/src/gpg-verifier.js',
-    'Tasks/PolicyAgentInstaller/PolicyAgentInstallerV1/src/gpg-verifier.js',
-
-    // Audit id23 (2026-07-20, extends issue #590): the per-file floor mechanism
-    // itself is sound, but it originally covered only the 7 files above -- these
-    // additional credential-transport and trust-verification modules are just as
-    // security-critical and were left at DEFAULT_FLOOR with no per-file guarantee.
-    //
-    // cosign keyless/cert-identity anchor gating trust in downloaded OpenTofu
-    // release binaries -- the direct sibling of the already-tiered gpg-verifier.js.
-    'Tasks/TerraformInstaller/TerraformInstallerV1/src/cosign-verifier.js',
-    // Credential-bearing HTTPS transports (TSM callback token / registry API key,
-    // including the skipTlsVerify branch). Byte-identical parity family across
-    // both listed tasks (scripts/check-shared-modules.js).
-    'Tasks/TerraformDriftReport/TerraformDriftReportV1/src/https-client.js',
-    'Tasks/TerraformModulePublish/TerraformModulePublishV1/src/https-client.js',
-    // The hand-tracked (not whole-file parity-gated) ServiceNow credential
-    // transport sibling of the https-client.js family above.
+    // The hand-tracked ServiceNow credential transport for PublishKbArticleV1's
+    // callback/API calls.
     'Tasks/PublishKbArticle/PublishKbArticleV1/src/servicenow-http.js',
-    // Registry API-key Bearer transport, including the skipTlsVerify branch.
-    'Tasks/TerraformModulePublish/TerraformModulePublishV1/src/http.js',
     // KB stored-XSS fail-closed gate: the URI-scheme allowlist shared by both
     // sanitizer/validator layers (byte-identical parity family, #446 lineage)...
     'Tasks/Markdown2Html/Markdown2HtmlV1/src/uri-scheme-guard.js',
@@ -121,30 +87,6 @@ const SECURITY_TIER = new Set([
     // ...and the independent fail-closed HTML validator itself (the `force`-input
     // bypass path's gate).
     'Tasks/PublishKbArticle/PublishKbArticleV1/src/html-validate.js',
-    // Git-clone token handling (http.extraheader, ref/subdir validation) for the
-    // policy-source repo.
-    'Tasks/TerraformPolicyCheck/TerraformPolicyCheckV1/src/policy-source.js',
-    // .terraformrc / HCL generation from operator-supplied mirror inputs.
-    'Tasks/TerraformProviderMirror/TerraformProviderMirrorV1/src/config-generator.js',
-
-    // Issue #755: the per-cloud command handlers that actually write the
-    // credential material oci-token-exchange.js and the shared package's
-    // id-token generator mint -- PEM private keys, OCI PAR-embedding backend
-    // config, and WIF/ARM_* tokens -- to disk and/or the child process
-    // environment. Tiering the minting helpers but not these was an
-    // inconsistent gap: a regression here is just as exposure-relevant as one
-    // in the helpers that feed them.
-    'Tasks/TerraformTask/TerraformTaskV5/src/azure-terraform-command-handler.js',
-    'Tasks/TerraformTask/TerraformTaskV5/src/aws-terraform-command-handler.js',
-    'Tasks/TerraformTask/TerraformTaskV5/src/gcp-terraform-command-handler.js',
-    'Tasks/TerraformTask/TerraformTaskV5/src/oci-terraform-command-handler.js',
-    // Batch E round 1 (#755 missed sibling): same credential-to-env pattern as
-    // the four handlers above -- applyBackendEnv() reads backendHCPToken,
-    // setSecret()s it, then writes it to TF_TOKEN_app_terraform_io. Left out of
-    // the original #755 pass alongside them despite fitting its rationale
-    // exactly. generic-terraform-command-handler.js handles no credentials at
-    // all and correctly stays untiered.
-    'Tasks/TerraformTask/TerraformTaskV5/src/hcp-terraform-command-handler.js',
     // PublishKbArticleV1's ServiceNow credential path: auth.js builds the
     // Basic/OAuth Authorization header (setSecret point-of-read for the
     // password/token), and servicenow-client.js is the sole caller that sends
@@ -152,66 +94,9 @@ const SECURITY_TIER = new Set([
     // transport and uri-scheme-guard.js validator in this same pipeline.
     'Tasks/PublishKbArticle/PublishKbArticleV1/src/auth.js',
     'Tasks/PublishKbArticle/PublishKbArticleV1/src/servicenow-client.js',
-
-    // Issue #776: the shared pre-signed-URL / operator-mirror-URL credential
-    // redaction module (CWE-532) standing between a registry download_url or a
-    // userinfo-bearing mirror URL and the (non-secret-masked) build log. It is
-    // byte-identical across all four consuming tasks (scripts/check-shared-
-    // modules.js) and is the direct sibling of the already-tiered redact.js /
-    // uri-scheme-guard.js redaction modules, yet was left at DEFAULT_FLOOR --
-    // where three of the four copies sat ~20 branch-points below
-    // TerraformProviderMirror's until #776 ported its thorough
-    // UrlSecretRedactionL0 suite to all four.
-    'Tasks/TerraformInstaller/TerraformInstallerV1/src/url-secret-redaction.js',
-    'Tasks/PolicyAgentInstaller/PolicyAgentInstallerV1/src/url-secret-redaction.js',
-    'Tasks/TerraformDocsInstaller/TerraformDocsInstallerV1/src/url-secret-redaction.js',
-    'Tasks/TerraformProviderMirror/TerraformProviderMirrorV1/src/url-secret-redaction.js',
-
-    // Issue #880: THE egress-authorization decision (CWE-918) for every
-    // installer download -- the initial registry/mirror download_url host and
-    // every redirect hop route through assertEgressHostAllowed(), whose numeric
-    // address classification is the only always-on control keeping an agent's
-    // download off 169.254.169.254 and RFC1918. Byte-identical across the three
-    // installers (scripts/check-shared-modules.js) and the direct sibling of the
-    // url-secret-redaction.js family tiered just above, yet left at
-    // DEFAULT_FLOOR -- so a regression dropping branch coverage on a whole CIDR
-    // range or the DNS-resolution arm would not fail CI.
-    'Tasks/TerraformInstaller/TerraformInstallerV1/src/registry-allowlist.js',
-    'Tasks/PolicyAgentInstaller/PolicyAgentInstallerV1/src/registry-allowlist.js',
-    'Tasks/TerraformDocsInstaller/TerraformDocsInstallerV1/src/registry-allowlist.js',
-
-    // Found by re-running #880's own argument as a signature across every
-    // parity-gated shared module rather than only the one the issue named.
-    // url-path-segment.js is the path-traversal guard standing between the
-    // operator's registryMirrorName and an interpolated URL path;
-    // verification-failure.js is the typed error that decides whether a cache
-    // re-verification fails closed or degrades to the cached binary. Both are
-    // byte-identical across the three installers and both sat at DEFAULT_FLOOR.
-    'Tasks/TerraformInstaller/TerraformInstallerV1/src/url-path-segment.js',
-    'Tasks/PolicyAgentInstaller/PolicyAgentInstallerV1/src/url-path-segment.js',
-    'Tasks/TerraformDocsInstaller/TerraformDocsInstallerV1/src/url-path-segment.js',
-    'Tasks/TerraformInstaller/TerraformInstallerV1/src/verification-failure.js',
-    'Tasks/PolicyAgentInstaller/PolicyAgentInstallerV1/src/verification-failure.js',
-    'Tasks/TerraformDocsInstaller/TerraformDocsInstallerV1/src/verification-failure.js',
-
-    // #880's first signature enumerated only PARITY-GATED modules, so it was blind
-    // to every security control that happens not to be duplicated. Re-run over ALL
-    // of Tasks/**/src, these eight were the residual — each one decides, constrains,
-    // validates or redacts, and each sat at DEFAULT_FLOOR:
-    //   credential-guards.js       fail-closed credential validation shared by every cloud handler
-    //   secure-file-loader.js      tightens permissions and scrub-deletes a secret-bearing download
-    //   secure-var-file-masking.js registers secure-var-file contents with the masker
-    //   endpoint-data-secret.js    reads ENDPOINT_DATA_* secrets without the debug-log leak
-    //   backend-detection.js       maps an untrusted backend type onto a credential-injection path
-    //   image-rewrite.js           path-containment guard for local <img src> in published KB HTML
-    //   private-publisher.js       validates an untrusted registry moduleId before URL interpolation
-    'Tasks/TerraformTask/TerraformTaskV5/src/credential-guards.js',
-    'Tasks/TerraformTask/TerraformTaskV5/src/secure-file-loader.js',
-    'Tasks/TerraformTask/TerraformTaskV5/src/secure-var-file-masking.js',
-    'Tasks/TerraformTask/TerraformTaskV5/src/endpoint-data-secret.js',
-    'Tasks/TerraformTask/TerraformTaskV5/src/backend-detection.js',
+    // Path-containment guard for local <img src> references rewritten into
+    // published KB HTML.
     'Tasks/PublishKbArticle/PublishKbArticleV1/src/image-rewrite.js',
-    'Tasks/TerraformModulePublish/TerraformModulePublishV1/src/private-publisher.js',
 ]);
 
 // Files allowed BELOW their applicable floor (DEFAULT_FLOOR, or SECURITY_FLOOR
@@ -224,22 +109,7 @@ const SECURITY_TIER = new Set([
 //   floor: the per-file lines minimum for this file (0 = exercised-incidentally
 //          / nothing-meaningful-to-cover; a positive value still guards against
 //          regression below the level reached today).
-const EXCEPTIONS = {
-    // STRUCTURAL — digest-schema.ts is the shared plan/apply digest CONTRACT
-    // (byte-identical copy in src/tab/, gated by check-shared-modules.js). It is
-    // almost entirely TypeScript type declarations that compile away; the single
-    // remaining executable line is a schema-version constant with no branch or
-    // behavior to unit-test. Permanent, low-value-to-cover exception.
-    'Tasks/TerraformTask/TerraformTaskV5/src/results/digest-schema.js': {
-        floor: 0,
-        note: 'types-only shared contract; nothing meaningful to unit-test',
-    },
-    // (The DriftReport/PolicyCheck secure-temp.js exceptions added with the
-    // tiered floors were removed once the #634 direct suites lifted both
-    // copies above the 80% SECURITY_FLOOR — the gate itself fails on a stale
-    // exception, by design. The module itself now lives in
-    // @4cloudguru/pipeline-task-ado and is no longer instrumented here.)
-};
+const EXCEPTIONS = {};
 
 // Pure classifier. Inputs:
 //   taskRel      — repo-relative task dir, e.g. 'Tasks/Foo/FooV1'
