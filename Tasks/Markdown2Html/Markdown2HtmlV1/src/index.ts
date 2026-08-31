@@ -4,8 +4,8 @@ import { processFrontMatterDriven, processFileList, parseFileList } from './conv
 import { sanitizeOutputVariableValue } from './output-variable';
 
 async function run(): Promise<void> {
-    tasks.setResourcePath(path.join(__dirname, '..', 'task.json'));
     try {
+        tasks.setResourcePath(path.join(__dirname, '..', 'task.json'));
         const mode = tasks.getInput('mode', true)!;
         const outputFile = tasks.getInput('outputFile', true)!;
         const title = tasks.getInput('title', false) ?? 'Combined Markdown Files';

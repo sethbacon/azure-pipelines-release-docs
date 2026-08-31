@@ -49,7 +49,12 @@ export function defaultRunner(cwd: string): GitRunner {
 export function latestReleaseTag(run: GitRunner, tagPrefix: string): string | null {
     let out: string;
     try {
-        out = run(['tag', '--list', `${tagPrefix}[0-9]*.[0-9]*.[0-9]*`, '--sort=-v:refname']);
+        // `--end-of-options` forces every argument after it to be read as a
+        // positional value, never as a flag -- without it, a `tagPrefix` task
+        // input starting with `-` (e.g. `-nonexistent-flag`) makes the pattern
+        // argument look like an option to `git tag` itself instead of the glob
+        // it actually is.
+        out = run(['tag', '--list', '--sort=-v:refname', '--end-of-options', `${tagPrefix}[0-9]*.[0-9]*.[0-9]*`]);
     } catch {
         return null;
     }
@@ -70,7 +75,21 @@ export function commitsSince(
     limit: number,
 ): RawCommit[] {
     const range = sinceTag ? `${sinceTag}..HEAD` : 'HEAD';
-    const args = ['log', `--max-count=${Math.max(1, Math.floor(limit))}`, `--format=%H%x1f%B${RECORD_FORMAT}`, range];
+    // `--end-of-options` (placed after every flag, immediately before the
+    // revision range) forces `range` to be read as a positional revision
+    // argument, never as an option -- git ref names cannot themselves start
+    // with `-`, but this keeps the guarantee independent of that constraint
+    // rather than resting on it. It must come before `range`, not via a bare
+    // `--`: a bare `--` here would instead mark the start of *pathspecs* for
+    // `git log`, silently reinterpreting the revision range as a (non-
+    // matching) path and dropping every commit rather than erroring.
+    const args = [
+        'log',
+        `--max-count=${Math.max(1, Math.floor(limit))}`,
+        `--format=%H%x1f%B${RECORD_FORMAT}`,
+        '--end-of-options',
+        range,
+    ];
 
     let out: string;
     try {
