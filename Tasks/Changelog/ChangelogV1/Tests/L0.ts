@@ -21,7 +21,7 @@ import { renderRelease, spliceRelease } from '../src/changelog';
 import { parseVersionFiles, stampJson, isSupportedJsonPath } from '../src/version-files';
 import { sanitizeOutputVariableValue } from '../src/output-variable';
 import { isWithinWorkingDirectory } from '../src/path-containment';
-import { commitsSince, latestReleaseTag } from '../src/git';
+import { commitsSince, defaultRunner, latestReleaseTag } from '../src/git';
 import { parseJson, resolveToken, adoRequest } from '../src/ado-client';
 import {
     releaseBranchName,
@@ -359,6 +359,49 @@ describe('git: history reading', () => {
         assert.ok(out[0].message.includes('body line'));
         assert.strictEqual(out[1].sha, 'bbb');
     });
+
+    it('places --end-of-options immediately before the tagPrefix-derived pattern, so a dash-leading tagPrefix can never be read as a git tag flag', () => {
+        const calls: string[][] = [];
+        latestReleaseTag((args) => { calls.push(args); return ''; }, '-nonexistent-flag');
+        const patternIndex = calls[0].findIndex((a) => a.startsWith('-nonexistent-flag'));
+        assert.ok(patternIndex > 0, `pattern not found in argv: ${JSON.stringify(calls[0])}`);
+        assert.strictEqual(calls[0][patternIndex - 1], '--end-of-options');
+    });
+
+    it('places --end-of-options immediately before the range, so a dash-leading tag can never be read as a git log flag', () => {
+        const calls: string[][] = [];
+        commitsSince((args) => { calls.push(args); return ''; }, '-evilflag', 10);
+        const rangeIndex = calls[0].indexOf('-evilflag..HEAD');
+        assert.ok(rangeIndex > 0, `range not found in argv: ${JSON.stringify(calls[0])}`);
+        assert.strictEqual(calls[0][rangeIndex - 1], '--end-of-options');
+    });
+
+    it('never lets an option-like tag reach the real git process as a working flag (e.g. write a file via --output=)', function () {
+        this.timeout(20000);
+        const repo = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'changelog-git-argv-'));
+        try {
+            const git = (...args: string[]) =>
+                cp.execFileSync('git', args, { cwd: repo, encoding: 'utf8', windowsHide: true });
+            git('init', '--quiet', '--initial-branch=main');
+            git('config', 'user.email', 'test@example.invalid');
+            git('config', 'user.name', 'Test');
+            git('config', 'commit.gpgsign', 'false');
+            fs.writeFileSync(path.join(repo, 'f.txt'), 'x');
+            git('add', '.');
+            git('commit', '--quiet', '-m', 'chore: seed');
+
+            const before = new Set(fs.readdirSync(repo));
+            // `git log`'s real `--output=<file>` flag WRITES the named file instead of
+            // printing to stdout -- a genuine, damaging outcome if this ever reaches
+            // git as a parsed option rather than as a literal (non-matching) revision.
+            const decoy = 'pwned-by-tag';
+            commitsSince(defaultRunner(repo), `--output=${decoy}`, 10);
+            const after = fs.readdirSync(repo).filter((f) => !before.has(f));
+            assert.deepStrictEqual(after, [], `git must never have written a new file from the tag value, found: ${JSON.stringify(after)}`);
+        } finally {
+            fs.rmSync(repo, { recursive: true, force: true });
+        }
+    });
 });
 
 describe('release-pr: description and branch', () => {
@@ -376,6 +419,19 @@ describe('release-pr: description and branch', () => {
 
     it('leaves a short description untouched', () => {
         assert.strictEqual(fitDescription('short'), 'short');
+    });
+
+    it('leaves a description of exactly the 4000-character cap untouched', () => {
+        const exact = 'x'.repeat(MAX_DESCRIPTION);
+        assert.strictEqual(fitDescription(exact), exact);
+    });
+
+    it('truncates a description one character past the cap', () => {
+        const overByOne = 'x'.repeat(MAX_DESCRIPTION + 1);
+        const fitted = fitDescription(overByOne);
+        assert.ok(fitted.length <= MAX_DESCRIPTION, `got ${fitted.length}`);
+        assert.ok(fitted.includes('Truncated'));
+        assert.notStrictEqual(fitted, overByOne);
     });
 });
 
@@ -568,5 +624,29 @@ describe('entry point: nothing releasable', () => {
         const scratch = path.join(__dirname, '.scratch', 'entrypoint-noop');
         const changelog = fs.readFileSync(path.join(scratch, 'CHANGELOG.md'), 'utf8');
         assert.strictEqual(changelog, '# Changelog\n\nAll notable changes.\n', 'an all-chore batch must write nothing');
+    });
+});
+
+describe('entry point: a throw during early setup is reported, not crashed', () => {
+    it('reports a clean Failed result when setResourcePath throws, instead of an unhandled-rejection crash (finding 1 of #133)', () => {
+        const result = cp.spawnSync(process.execPath, [path.join(__dirname, 'EntryPointSetResourcePathThrows.js')], {
+            encoding: 'utf8',
+            timeout: 120000,
+        });
+        const stdout = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+        assert.strictEqual(result.status, 0, `the task process must exit cleanly, not crash uncaught:\n${stdout.slice(0, 2000)}`);
+        // The raw message, with no "Unhandled: " prefix and no accompanying stack-trace
+        // issue, proves the task's OWN catch block handled this -- not azure-pipelines-
+        // task-lib's generic process-level uncaughtException/unhandledRejection fallback
+        // (registered as an import side effect in task.js), which reports a
+        // differently-worded "Unhandled: <message>" result instead.
+        assert.ok(
+            /task\.complete result=Failed;\]boom-from-setResourcePath$/m.test(stdout),
+            `expected the task's own catch to report the raw message with no wrapper:\n${stdout.slice(0, 2000)}`
+        );
+        assert.ok(
+            !/Unhandled: boom-from-setResourcePath/.test(stdout),
+            `must not fall through to azure-pipelines-task-lib's generic unhandled-exception reporting:\n${stdout.slice(0, 2000)}`
+        );
     });
 });

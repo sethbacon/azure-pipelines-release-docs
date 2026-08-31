@@ -249,8 +249,8 @@ async function executeCreateOrUpdate(
 }
 
 async function run() {
-    tasks.setResourcePath(path.join(__dirname, '..', 'task.json'));
     try {
+        tasks.setResourcePath(path.join(__dirname, '..', 'task.json'));
         const { instance, headers } = await resolveAuth();
 
         // -----------------------------------------------------------------

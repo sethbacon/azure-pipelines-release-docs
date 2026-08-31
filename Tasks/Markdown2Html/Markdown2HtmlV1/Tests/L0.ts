@@ -856,4 +856,21 @@ describe('Markdown2Html entry point (src/index.ts)', function () {
             fs.rmSync(path.join(os.tmpdir(), 'md2html-entrypoint-missing'), { recursive: true, force: true });
         }
     });
+
+    it('reports a clean Failed result when setResourcePath throws, instead of an unhandled-rejection crash (finding 1 of #133)', async () => {
+        const tr = new ttm.MockTestRunner(path.join(__dirname, 'EntryPointSetResourcePathThrows.js'));
+        await tr.runAsync();
+        assert.ok(tr.failed, 'the entry point must fail closed, not crash uncaught. stdout: ' + tr.stdout);
+        // Exactly one error issue, with the raw message and no "Unhandled: " prefix,
+        // proves the task's OWN catch block handled this -- not azure-pipelines-
+        // task-lib's generic process-level uncaughtException/unhandledRejection
+        // fallback (registered as an import side effect in task.js), which reports a
+        // differently-worded "Unhandled: <message>" result plus a second, stack-trace
+        // issue instead.
+        assert.deepStrictEqual(
+            tr.errorIssues,
+            ['boom-from-setResourcePath'],
+            'the task\'s own catch must report the raw message with no wrapper and no extra issues. errors: ' + tr.errorIssues + ' stdout: ' + tr.stdout
+        );
+    });
 });

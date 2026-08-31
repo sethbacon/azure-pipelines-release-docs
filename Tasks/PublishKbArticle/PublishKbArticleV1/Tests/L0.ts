@@ -2495,6 +2495,32 @@ describe('PublishKbArticle full-task: instance SSRF guard', () => {
     });
 });
 
+describe('PublishKbArticle full-task: a throw during early setup is reported, not crashed', () => {
+    before(() => {
+        (ttm.MockTestRunner.prototype as unknown as { getNodePath: () => string }).getNodePath = function () {
+            return process.execPath;
+        };
+    });
+
+    it('reports a clean Failed result when setResourcePath throws, instead of an unhandled-rejection crash (finding 1 of #133)', async () => {
+        const tp = nodePath.join(__dirname, 'EntryPointSetResourcePathThrows.js');
+        const tr: ttm.MockTestRunner = new ttm.MockTestRunner(tp);
+        await tr.runAsync();
+        assert.ok(tr.failed, 'the entry point must fail closed, not crash uncaught. stdout: ' + tr.stdout);
+        // Exactly one error issue, with the raw message and no "Unhandled: " prefix,
+        // proves the task's OWN catch block handled this -- not azure-pipelines-
+        // task-lib's generic process-level uncaughtException/unhandledRejection
+        // fallback (registered as an import side effect in task.js), which reports a
+        // differently-worded "Unhandled: <message>" result plus a second, stack-trace
+        // issue instead.
+        assert.deepStrictEqual(
+            tr.errorIssues,
+            ['boom-from-setResourcePath'],
+            'the task\'s own catch must report the raw message with no wrapper and no extra issues. errors: ' + tr.errorIssues + ' stdout: ' + tr.stdout
+        );
+    });
+});
+
 // ===========================================================================
 // PublishKbArticle full-task: real (non-dry-run) execution paths
 //

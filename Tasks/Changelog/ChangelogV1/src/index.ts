@@ -41,8 +41,8 @@ function readIfPresent(file: string): string | null {
 }
 
 async function run(): Promise<void> {
-    tasks.setResourcePath(path.join(__dirname, '..', 'task.json'));
     try {
+        tasks.setResourcePath(path.join(__dirname, '..', 'task.json'));
         const workingDirectory = tasks.getPathInput('workingDirectory', false, true) || process.cwd();
         const changelogPath = tasks.getInput('changelogPath', false) || 'CHANGELOG.md';
         const tagPrefix = tasks.getInput('tagPrefix', false) ?? 'v';
