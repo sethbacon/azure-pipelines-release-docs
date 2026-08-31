@@ -177,7 +177,7 @@
             "label": "Emit Manifest Path",
             "defaultValue": "",
             "required": false,
-            "helpMarkDown": "Path to a JSON manifest file to append article metadata. When set, no KB*.json file is written."
+            "helpMarkDown": "Path to a JSON manifest file to append article metadata. When set, no KB*.json file is written. Commonly points outside this task's working directory (for example, an agent temp directory) so the manifest survives across runs on a self-hosted agent; this path is not validated against the working directory."
         },
         {
             "name": "force",

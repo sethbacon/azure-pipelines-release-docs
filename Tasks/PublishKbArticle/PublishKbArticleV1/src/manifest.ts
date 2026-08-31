@@ -24,7 +24,39 @@ export function sanitizeForSingleLineEcho(value: string): string {
 /** Upper bound on a kb-manifest file before it is read into memory and parsed. */
 const MANIFEST_MAX_BYTES = 5 * 1024 * 1024;
 
-/** Append an article entry to the kb-manifest JSON file. */
+/**
+ * Append an article entry to the kb-manifest JSON file.
+ *
+ * `manifestPath` deliberately carries no path-containment check (#123 finding 3).
+ * It comes from the `emitManifest` task input -- a plain string the pipeline
+ * operator writes in YAML -- with no repo-content or ServiceNow-response
+ * component anywhere in the path it takes to get here (traced end to end:
+ * `index.ts` reads it once via `tasks.getInput` and passes it straight through
+ * `emitArticleOutput` to this function; nothing derived from `article` ever
+ * touches it). That is the same operator-vs-content distinction that made
+ * `includes.ts`/`image-rewrite.ts`'s symlink-escape findings real (#141) and
+ * this one not: there is no untrusted input that could plant a path here for a
+ * containment check to catch. All 6 `Real*Succeeds` fixtures set it to a
+ * `os.tmpdir()`-based path outside any working-directory concept by
+ * construction -- containing it against `process.cwd()` (or against
+ * `System.DefaultWorkingDirectory`, the ADO checkout root) breaks that
+ * real, deliberate usage rather than closing a gap. Mutation-verified: adding
+ * a naive `process.cwd()`-based guard here fails 14 tests across the 6 fixtures
+ * plus 8 unit tests; see #123's closing comment.
+ *
+ * That said, this function does more with `manifestPath` than a plain write:
+ * it opens and reads whatever is already there, and on a parse failure renames
+ * it aside to a `.bak` file before writing a fresh manifest. The read is
+ * TOCTOU-hardened (one fd, opened once -- see the comment below), but the
+ * later rename and write re-open `manifestPath` as a bare path string, so
+ * there is a window between the read and the rename/write where the path
+ * could resolve to a different file than what was just read. This is a real
+ * property of the function, not a containment problem, and a directory-bound
+ * containment check would not close it -- it does not stop a write from
+ * landing on the wrong file inside an already-allowed directory. Left as a
+ * documented residual, not a defect: the path is still operator-supplied, so
+ * this is not attacker-reachable under this repo's threat model.
+ */
 export function appendToManifest(manifestPath: string, entry: Record<string, unknown>): void {
     let entries: unknown[] = [];
     // Opened once and read via that same descriptor (not an existsSync +
