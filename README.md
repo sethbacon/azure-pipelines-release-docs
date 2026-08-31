@@ -46,10 +46,68 @@ OAuth token* on the job.
 the release comes out silently empty. A PR description is capped at 4000 characters and is *rejected*
 rather than truncated past it. Both are handled, and both are covered by tests.
 
-### `PipelineMarkdown2Html@1` and `PipelinePublishKbArticle@1`
+### `PipelineMarkdown2Html@1` — Markdown to HTML Converter
 
-Migrated out of the Terraform extension (#71). See
-[the migration note](#why-a-separate-extension) below for why they moved and what the cutover window is.
+Migrated out of the Terraform extension (#71). Converts one or more Markdown files to a single HTML
+document for publishing as a ServiceNow knowledge base article, either as an explicit file list or
+driven by a primary file's YAML front-matter (`includes:`).
+
+| Input         | Default                    | Description                                                                         |
+| ------------- | --------------------------- | ------------------------------------------------------------------------------------ |
+| `mode`        | —                            | `filelist` or `frontMatter` — which of the two inputs below supplies the source files. |
+| `primaryFile` | —                            | (`frontMatter` mode) Markdown file whose front-matter drives multi-file composition.  |
+| `inputFiles`  | —                            | (`filelist` mode) Markdown files to convert and combine, one per line or comma-separated. |
+| `outputFile`  | —                            | Path to the output HTML file.                                                        |
+| `title`       | `Combined Markdown Files`   | Title for the generated HTML document.                                              |
+| `sections`    | `false`                      | Add file names as section headers before each file's content.                       |
+| `dividers`    | `false`                      | Add horizontal rules between files.                                                  |
+| `debug`       | `false`                      | Print additional debug information during conversion.                               |
+
+Output: `htmlFilePath` (absolute path to the generated HTML file). No credentials — this task only
+reads local Markdown files and writes a local HTML file.
+
+### `PipelinePublishKbArticle@1` — Publish KB Article to ServiceNow
+
+Migrated out of the Terraform extension (#71). Creates or updates a knowledge base article in
+ServiceNow from an HTML file (typically `Markdown2Html`'s output), optionally uploading referenced
+local images as attachments.
+
+| Input               | Default   | Description                                                                                          |
+| ------------------- | --------- | ------------------------------------------------------------------------------------------------------ |
+| `serviceConnection` | —         | A `ServiceNowKb` service connection. If unset, provide `instance` and credentials inline below.        |
+| `instance`          | —         | ServiceNow instance name. Required when no service connection is set.                                  |
+| `authType`          | `oauth`   | `oauth` (client credentials) or `basic` (username/password) — only used without a service connection.  |
+| `clientId`          | —         | OAuth client ID (`authType = oauth`).                                                                  |
+| `clientSecret`      | —         | OAuth client secret (`authType = oauth`). **Secret-typed** — pass a secret pipeline variable, never a literal. |
+| `username`          | —         | ServiceNow username (`authType = basic`).                                                               |
+| `password`          | —         | ServiceNow password (`authType = basic`). **Secret-typed** — pass a secret pipeline variable, never a literal. |
+| `kbId`              | —         | Knowledge base sys_id. Use `list` to print available knowledge bases.                                  |
+| `articleId`         | —         | Existing article sys_id to update. Auto-detected via `sourceKey`/JSON lookup when unset.               |
+| `title`             | —         | Article title. Required when creating a new article.                                                   |
+| `htmlFile`          | —         | HTML file whose contents become the article body.                                                      |
+| `author`            | —         | ServiceNow username of the article author. Required when creating a new article.                       |
+| `category`          | —         | Category name (or `sys_id:<id>`). Auto-created if not found.                                           |
+| `subcategory`       | —         | Subcategory name (requires `category`). Auto-created if not found.                                     |
+| `workflowState`     | `draft`   | `draft`, `review`, or `publish` — the article's target workflow state.                                 |
+| `sourceKey`         | —         | Stable correlation key for idempotent create/update, stored as `wiki-source:` metadata.                |
+| `readKeyFrom`       | —         | Markdown file whose `kb-key:` front-matter supplies `sourceKey`.                                       |
+| `emitManifest`      | —         | JSON manifest file to append article metadata to (instead of writing a legacy `KB*.json`).             |
+| `force`             | `false`   | Continue past content-loss warnings. Security checks (script tags, `javascript:`/`data:` URIs, etc.) always fail regardless — see SECURITY.md. |
+| `skipJsonLookup`    | `false`   | Skip looking for KB article JSON files in the current directory.                                       |
+| `dryRun`            | `false`   | Preview the publish with no write to ServiceNow.                                                       |
+| `uploadImages`      | `false`   | Upload relative `<img>` references as ServiceNow attachments and rewrite their `src`.                  |
+| `imageBaseDir`      | —         | Base directory for resolving relative image paths (`uploadImages = true`). Defaults to the HTML file's directory. |
+
+Outputs: `kbArticleId`, `kbArticleNumber`, `kbWorkflowState`.
+
+**Credentials.** Prefer `serviceConnection` — the `ServiceNowKb` endpoint type stores the secret via
+Azure DevOps' own vaulted service-connection storage. When authenticating inline instead, `clientSecret`
+and `password` are `isSecret` task inputs: set them from a secret pipeline variable
+(`$(mySecretVariable)`), never as a literal in YAML, so they are masked in logs and not stored in
+plain text in the pipeline definition.
+
+See [the migration note](#why-a-separate-extension) below for why both tasks moved here and what the
+cutover window is.
 
 ## Why a separate extension
 

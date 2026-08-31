@@ -61,6 +61,12 @@ const ACTIONS = {
   prune: (dir) => npm(['--prefix', dir, 'prune', '--omit=dev', '--no-update-notifier', '--no-progress']),
   compile: (dir) => tsc(['-b', path.join(dir, 'tsconfig.json')]),
   test: (dir) => npm(['--prefix', dir, 'test']),
+  // Same as `test`, but with nyc coverage thresholds and the per-file
+  // SECURITY_TIER gate (check-per-file-coverage.js, wired as this script's own
+  // posttest:coverage hook) enforced -- see #125. Runs the suite once; a
+  // separate un-covered `test` run in the same CI job would double the time
+  // for no benefit, so ci.yml calls this instead of `test`, not alongside it.
+  testCoverage: (dir) => npm(['--prefix', dir, 'run', 'test:coverage']),
   // Run from INSIDE the task directory rather than with --prefix: `npm audit`
   // resolves the tree it audits from the working directory, and a --prefix that
   // it quietly ignores would audit the ROOT tree while reporting a task's name —

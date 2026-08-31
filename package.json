@@ -22,6 +22,7 @@
     "deps:prune": "node scripts/for-each-task.js prune",
     "compile": "node scripts/for-each-task.js compile",
     "test:all": "node scripts/for-each-task.js test",
+    "test:coverage:all": "node scripts/for-each-task.js testCoverage",
     "smoke:all": "node scripts/for-each-task.js smoke",
     "audit:all": "node scripts/for-each-task.js audit",
     "check:versions": "node scripts/check-versions.js",

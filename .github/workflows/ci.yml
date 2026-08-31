@@ -147,7 +147,7 @@ jobs:
       - run: npm run test:task-runner
       - run: npm run deps
       - run: npm run compile
-      - run: npm run test:all
+      - run: npm run test:coverage:all
       # Both task.json files declare a Node20_1 handler beside Node24, so an agent
       # without Node 24 runs the shipped artefact under Node 20 — a runtime nothing
       # here executed until this leg. azure-pipelines-terraform smoke-tested these
