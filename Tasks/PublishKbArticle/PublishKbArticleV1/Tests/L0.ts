@@ -2657,7 +2657,12 @@ describe('PublishKbArticle full-task: real (non-dry-run) execution paths', () =>
         }, tr);
     });
 
-    it('RealUploadImagesFailsWhilePublished — warns that a published article may have unrewritten images when the upload phase fails (#126)', async () => {
+    it('RealUploadImagesFailsWhilePublished — warns that a published article may have unrewritten images when the upload phase fails (#126)', async function () {
+        // Observed timing out at the default 10000ms on a loaded CI runner
+        // (a real TaskMockRunner child-process spawn, not a retry/backoff wait
+        // like the double-retry test above) -- double the budget rather than
+        // guess at a tighter number.
+        this.timeout(20000);
         const tp = nodePath.join(__dirname, 'RealUploadImagesFailsWhilePublished.js');
         const tr: ttm.MockTestRunner = new ttm.MockTestRunner(tp);
         await tr.runAsync();
