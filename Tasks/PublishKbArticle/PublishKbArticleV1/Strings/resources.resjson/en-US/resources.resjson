@@ -69,5 +69,6 @@
   "loc.messages.ArticleIdLine": "Article ID: %s",
   "loc.messages.WorkflowStateLine": "Workflow State: %s",
   "loc.messages.ImagesRewritten": "Rewrote %s image reference(s) to ServiceNow attachments.",
-  "loc.messages.ImagesMissingSummary": "%s image(s) not found and left unchanged."
+  "loc.messages.ImagesMissingSummary": "%s image(s) not found and left unchanged.",
+  "loc.messages.ArticlePublishedWithUnrewrittenImages": "Article %s is already in the 'published' workflow state but image upload failed before its body could be rewritten -- it may show broken local image references until a later successful run completes the rewrite."
 }

@@ -322,6 +322,7 @@
         "ArticleIdLine": "Article ID: %s",
         "WorkflowStateLine": "Workflow State: %s",
         "ImagesRewritten": "Rewrote %s image reference(s) to ServiceNow attachments.",
-        "ImagesMissingSummary": "%s image(s) not found and left unchanged."
+        "ImagesMissingSummary": "%s image(s) not found and left unchanged.",
+        "ArticlePublishedWithUnrewrittenImages": "Article %s is already in the 'published' workflow state but image upload failed before its body could be rewritten -- it may show broken local image references until a later successful run completes the rewrite."
     }
 }

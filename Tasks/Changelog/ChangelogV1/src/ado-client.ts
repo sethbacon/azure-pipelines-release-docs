@@ -17,7 +17,6 @@
 
 import tasks = require('azure-pipelines-task-lib/task');
 import {
-    HttpError,
     httpsRequest,
     isRetryableHttpStatus,
     retryAsync,
@@ -114,7 +113,14 @@ export async function adoRequest(
             baseDelayMs: 1,
             maxElapsedMs: RETRY_BUDGET_MS,
             retryResult: (r) => isRetryableHttpStatus(r.status),
-            retryError: (e) => !(e instanceof HttpError) || e.retryable,
+            // A rejection here is always a bare transport failure: httpsRequest
+            // resolves (never rejects) for any received HTTP response, so
+            // retryResult above is what handles a captured 5xx/429. Whether the
+            // request reached the server before failing is unknown, so retrying
+            // is safe only for GET (idempotent) -- a POST/PATCH could duplicate
+            // or double-apply an already-processed request (mirrors
+            // PublishKbArticleV1's nonIdempotentCreateRetryError).
+            retryError: () => method === 'GET',
         },
     );
 }

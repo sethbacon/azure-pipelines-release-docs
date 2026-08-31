@@ -8,14 +8,20 @@
  */
 
 import { execFileSync } from 'child_process';
+import tasks = require('azure-pipelines-task-lib/task');
 
 /**
  * Separates commits in `git log` output. Written as git's own `%x00` escape,
  * never as a literal NUL in the argument: Node refuses to pass an argv string
- * containing one, and `commitsSince` swallows the throw, so a literal here makes
- * every history read return "no commits" — indistinguishable from a repository
- * with nothing to release.
+ * containing one, and `commitsSince` warns-and-falls-back on the throw, so a
+ * literal here makes every history read look like "no commits" — indistinguishable
+ * from a repository with nothing to release.
  */
+
+/** A thrown git invocation's message, for the warning logged before falling back. */
+function errorMessage(err: unknown): string {
+    return err instanceof Error ? err.message : String(err);
+}
 const RECORD_FORMAT = '%x00';
 const RECORD = '\u0000';
 const FIELD = '\u001f';
@@ -55,7 +61,12 @@ export function latestReleaseTag(run: GitRunner, tagPrefix: string): string | nu
         // argument look like an option to `git tag` itself instead of the glob
         // it actually is.
         out = run(['tag', '--list', '--sort=-v:refname', '--end-of-options', `${tagPrefix}[0-9]*.[0-9]*.[0-9]*`]);
-    } catch {
+    } catch (err) {
+        // A thrown git invocation is a real failure (bad ref, not a repository,
+        // git unavailable) -- a repository that has simply never been tagged
+        // exits 0 with empty output and never reaches here. Warn so this is
+        // distinguishable from "never tagged" rather than silently treated the same.
+        tasks.warning(tasks.loc('GitCommandFailed', 'git tag --list', errorMessage(err)));
         return null;
     }
     const first = out.split('\n').map((l) => l.trim()).filter(Boolean)[0];
@@ -94,7 +105,12 @@ export function commitsSince(
     let out: string;
     try {
         out = run(args);
-    } catch {
+    } catch (err) {
+        // Same reasoning as latestReleaseTag's catch: an empty range (nothing new
+        // to release) exits 0 with empty output and never reaches here, so a
+        // throw here is a real failure, not the empty-range case it would
+        // otherwise be indistinguishable from.
+        tasks.warning(tasks.loc('GitCommandFailed', 'git log', errorMessage(err)));
         return [];
     }
 

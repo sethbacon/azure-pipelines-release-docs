@@ -250,18 +250,11 @@ export async function syncImageAttachment(
         instance, headers, articleId, data, fileName, contentTypeFor(fileName),
     );
     if (match) {
-        // Retried (#509) the same as uploadAttachment above -- deleteAttachment
-        // previously had no retry of its own. This is deliberately a retry of the
-        // single DELETE call, not of syncImageAttachment as a whole: retrying the
-        // whole function (which processArticleImages did in an earlier version of
-        // this change) re-runs the already-succeeded upload step too on every
-        // retry attempt -- since `existing` is a snapshot captured once before the
-        // loop and never refreshed, a transient failure on delete would silently
-        // accumulate duplicate attachments instead of safely retrying the one
-        // call that actually failed.
-        await withRetry(() => deleteAttachment(instance, headers, match.sys_id), {
-            log: (message) => console.log(`[WARN] ${message}`),
-        });
+        // deleteAttachment retries its own DELETE call internally (#879) -- an
+        // outer retry here used to be necessary (#509, before deleteAttachment
+        // had one of its own) and would now double the retry budget on a
+        // transient failure instead of retrying once.
+        await deleteAttachment(instance, headers, match.sys_id);
     }
     return newId;
 }

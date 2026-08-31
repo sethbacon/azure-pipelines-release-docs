@@ -105,14 +105,14 @@ export async function updateReleasePr(
 }
 
 /**
- * Azure DevOps caps a PR description at 4000 characters and REJECTS a longer one
- * rather than truncating it, so a release with a long changelog would fail at
- * the point of opening its own PR.
+ * Azure DevOps caps a PR description at 4000 characters and REJECTS a longer
+ * one rather than truncating it. Truncating here instead would silently ship
+ * a PR whose description doesn't match what CHANGELOG.md actually records --
+ * a loud failure at the point of opening the PR is preferable to that.
  */
 export const MAX_DESCRIPTION = 4000;
 
-export function fitDescription(body: string, moreUrl?: string): string {
+export function fitDescription(body: string): string {
     if (body.length <= MAX_DESCRIPTION) return body;
-    const notice = moreUrl ? `\n\n_Truncated; full notes in ${moreUrl}_` : '\n\n_Truncated._';
-    return `${body.slice(0, MAX_DESCRIPTION - notice.length)}${notice}`;
+    throw new Error(tasks.loc('ReleasePrDescriptionTooLong', body.length, MAX_DESCRIPTION));
 }

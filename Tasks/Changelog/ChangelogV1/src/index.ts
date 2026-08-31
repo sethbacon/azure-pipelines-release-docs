@@ -87,8 +87,7 @@ async function run(): Promise<void> {
             }
             const source = readIfPresent(absolute);
             if (source === null) {
-                tasks.warning(tasks.loc('VersionFileMissing', file.path));
-                continue;
+                throw new Error(tasks.loc('VersionFileMissing', file.path));
             }
             const next = stampJson(source, file.jsonpath, versionText);
             if (next === null) {
