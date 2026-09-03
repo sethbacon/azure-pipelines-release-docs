@@ -1911,7 +1911,15 @@ describe('syncImageAttachment', () => {
     });
 
     it('does not double-retry the DELETE of a replaced attachment (deleteAttachment already retries internally, #126)', async function () {
-        this.timeout(10000);
+        // Four DELETE attempts with a real backoff sleep between each, so the
+        // duration is dominated by jittered waits rather than by work: 4365ms
+        // on an unloaded runner, and observed exceeding 10000ms twice in a row
+        // on a loaded one (run 33761105476, both attempts, on a pull request
+        // whose only changed file was a workflow). Same remedy, and the same
+        // reasoning, as RealUploadImagesFailsWhilePublished below, whose
+        // comment already names this test as the retry/backoff case: double the
+        // budget rather than guess at a tighter number.
+        this.timeout(20000);
         nock(BASE_URL)
             .post('/api/now/attachment/file')
             .query(true)
