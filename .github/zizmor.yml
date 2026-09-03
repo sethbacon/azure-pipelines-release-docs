@@ -2,19 +2,20 @@
 #
 # Documented, intentional exceptions. Every other finding fails the
 # "Scan Workflows (zizmor)" job, which is a required status check on main.
-# This file exists only because release.yml landed; there was nothing to
-# exempt before it, and there is nothing exempted outside it.
+# It began life exempting release.yml alone; weekly-security.yml joined it
+# when the self-repository audit landed, and nothing outside those two is
+# exempted.
 #
 # Ported from azure-pipelines-terraform's .github/zizmor.yml, which carries
 # the same two exceptions for the same two reasons. Following the terraform
 # side rather than the packer side deliberately: packer ignores both rules
 # for the WHOLE of release.yml, so a genuinely new instance introduced later
-# for an unrelated reason would be swallowed silently. These ignores are
+# for an unrelated reason would be swallowed silently. The ported ignores are
 # scoped to the exact line:column zizmor reports today, so an edit that moves
 # those steps surfaces them for review again.
 #
 # Re-verify with:
-#   zizmor --no-config --format plain .github/workflows/release.yml
+#   zizmor --no-config --format plain .github/workflows/
 rules:
   # Full-SHA pinning was a convention with nothing enforcing it: the repository
   # setting `sha_pinning_required` is false, and zizmor's DEFAULT unpinned-uses
@@ -44,3 +45,19 @@ rules:
       # its release-notes generation, and for returning the release id that
       # undraft-release needs. `gh release create` is not equivalent here.
       - release.yml:424:15
+  self-repository:
+    ignore:
+      # zizmor 1.30.0 wants the reusable-workflow call rewritten from
+      # `uses: ./.github/workflows/ci.yml` to GitHub's self-repository form,
+      # `uses: $/.github/workflows/ci.yml`. That remediation cannot be applied
+      # here: actionlint rejects `$/` as a malformed `uses:` value, and
+      # actionlint is a required check through 4cloudguru/shared-workflows'
+      # workflow-security gate. This was proven, not assumed — the conversion
+      # was tried in 4cloudguru/shared-workflows#46, `$/` resolved correctly at
+      # runtime, and actionlint plus a pinning gate failed it. Support is
+      # requested in rhysd/actionlint#711, still open. Tracked in
+      # 4cloudguru/shared-workflows#45; drop this entry once actionlint accepts
+      # the form. Scoped to the two files that call the reusable workflow, so
+      # a `uses: ./` added anywhere else still fails the job.
+      - release.yml
+      - weekly-security.yml
