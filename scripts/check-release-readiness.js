@@ -241,7 +241,14 @@ if (workflowText !== null) {
   if (!slug) {
     fail('signing-identity', 'package.json', 'no `repository.url` naming a GitHub repository, so the signing identity cannot be checked against it')
   } else {
-    const pins = [...workflowText.matchAll(/--certificate-identity-regexp\s+'([^']*)'/g)].map((m) => m[1])
+    // Two shapes: an inline `cosign verify-blob --certificate-identity-regexp
+    // '<value>'` shell invocation, and the `certificate-identity-regexp:
+    // '<value>'` composite-action input this repo, azure-pipelines-terraform
+    // and azure-pipelines-packer all moved to (4cloudguru/shared-workflows'
+    // verify-vsix-signature action) -- the same pinned regexp, delivered a
+    // different way. A repo mid-migration, or a future revert to the inline
+    // form, must still be recognised, not go blind.
+    const pins = [...workflowText.matchAll(/(?:--certificate-identity-regexp\s+|certificate-identity-regexp:\s*)'([^']*)'/g)].map((m) => m[1])
     enumerated.identityPins = pins.length
     if (pins.length === 0) {
       fail(
