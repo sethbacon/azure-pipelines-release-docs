@@ -36,8 +36,7 @@
     "test:composition": "node scripts/test-package-composition.js",
     "test:gates": "node scripts/test-gates.js",
     "test:task-runner": "node scripts/test-for-each-task.js",
-    "test:release-readiness": "node scripts/test-release-readiness.js",
-    "test:publish": "node scripts/test-publish-marketplace.js"
+    "test:release-readiness": "node scripts/test-release-readiness.js"
   },
   "devDependencies": {
     "@cyclonedx/cyclonedx-npm": "6.0.1",

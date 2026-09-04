@@ -170,13 +170,15 @@ by the gate above. And `replay` revokes its installation token immediately after
 exists for, then spends the revoked token and fails if it still works — so the fifteen repositories' own
 committed gate scripts, and the commit under review, execute in a job holding no credential.
 
-Three more gates run only at release time, in `release.yml`'s `guard` job, because they answer
+Two more gates run only at release time, in `release.yml`'s `guard` job, because they answer
 questions a pull request cannot: `scripts/check-release-readiness.js` (the release preconditions —
 something to publish, a release-please config that actually creates the tag `release.yml` triggers
 on, SBOM coverage that tracks the task tree, and a cosign identity naming *this* repository rather
-than the sibling it was ported from), plus the mutation self-tests
-`scripts/test-release-readiness.js` and `scripts/test-publish-marketplace.js`, which break what
-those guards protect and assert each one fails and names the cause. They belong in the
+than the sibling it was ported from), plus the mutation self-test
+`scripts/test-release-readiness.js`, which breaks what that guard protects and asserts it fails and
+names the cause. (The Marketplace publish's own retry/token-safety self-test moved with the
+implementation to 4cloudguru/shared-workflows' `publish-marketplace` composite action, which carries
+its own self-test there.) They belong in the
 already-required **Check Version Consistency** job so they gate a merge as well as a release; that is
 a one-line change to `.github/workflows/ci.yml` and is deliberately not made here.
 

@@ -181,9 +181,12 @@ npm run test:composition  # mutation self-tests: re-create each defect the gates
 npm run test:gates        # above exist to catch and assert they fail by name
 npm run check:release-readiness  # preconditions release.yml depends on
 npm run test:release-readiness   # mutation self-test for the gate above
-npm run test:publish             # the publish wrapper keeps the Entra token off
-                                 # argv and bounds its retries
 ```
+
+The Marketplace publish itself (retries, token kept off argv) is
+4cloudguru/shared-workflows' `publish-marketplace` composite action, shared
+with azure-pipelines-terraform and azure-pipelines-packer; its self-test lives
+there, not in this repo.
 
 `check:versions`, `check:composition`, `test:composition` and `test:gates` all run in the required
 `Check Version Consistency` CI job; `check:audit-scope` runs in `Dependency audit`, ahead of the
