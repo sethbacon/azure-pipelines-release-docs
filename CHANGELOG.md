@@ -10,6 +10,14 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.1](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.0...v1.1.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* centralize the Marketplace publish and close [#23](https://github.com/sethbacon/azure-pipelines-release-docs/issues/23) for this job ([#170](https://github.com/sethbacon/azure-pipelines-release-docs/issues/170)) ([d5dea3f](https://github.com/sethbacon/azure-pipelines-release-docs/commit/d5dea3fc89a6f46200159058c80799297c7f3566))
+* stop tfx's routine preamble from masking a real publish failure ([#168](https://github.com/sethbacon/azure-pipelines-release-docs/issues/168)) ([7a1a526](https://github.com/sethbacon/azure-pipelines-release-docs/commit/7a1a526903300376b5033fda69e4b7e123e871a0))
+
 ## [1.1.0](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.0.2...v1.1.0) (2026-08-31)
 
 

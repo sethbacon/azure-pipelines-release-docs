@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "pipeline-tasks-release-docs",
   "name": "Pipeline Tasks for Release & Documentation",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "publisher": "sethbacon",
   "targets": [
     {
