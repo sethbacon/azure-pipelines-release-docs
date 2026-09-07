@@ -2056,6 +2056,13 @@ describe('processArticleImages', () => {
             capturedWarnings[0].includes('first.png'),
             `warning should name the already-uploaded attachment: ${capturedWarnings[0]}`,
         );
+        // azure-pipelines-terraform#1113 finding 2 (suite-scope residual): name the
+        // sys_id too, not just the filename, so an operator can act on the
+        // orphaned attachment directly without waiting on the next run's re-sync.
+        assert.ok(
+            capturedWarnings[0].includes('a1f1a1f1a1f1a1f1a1f1a1f1a1f1a1f1'),
+            `warning should name the already-uploaded attachment's sys_id: ${capturedWarnings[0]}`,
+        );
     });
 
     it('#509: does not log an abort warning when the loop completes without aborting', async () => {
@@ -2327,6 +2334,43 @@ describe('manifest.emitArticleOutput / findKbArticleJson', () => {
             assert.strictEqual(manifest.findKbArticleJson(), null);
         } finally {
             process.chdir(cwd);
+        }
+    });
+
+    it('azure-pipelines-terraform#1113 f5 residual: warns (does not silently swallow) a non-ENOENT readdirSync failure', () => {
+        const originalReaddir = fs.readdirSync;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (fs as any).readdirSync = () => {
+            const err = new Error('EACCES: permission denied') as NodeJS.ErrnoException;
+            err.code = 'EACCES';
+            throw err;
+        };
+        try {
+            assert.strictEqual(manifest.findKbArticleJson(), null, 'still falls back to null so the caller proceeds without a legacy KB JSON');
+            assert.ok(
+                capturedWarnings.some((w) => /KbArticleJsonScanFailed|Could not scan the working directory/.test(w)),
+                `expected the non-ENOENT readdirSync failure to surface via tasks.warning: ${capturedWarnings}`,
+            );
+        } finally {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (fs as any).readdirSync = originalReaddir;
+        }
+    });
+
+    it('azure-pipelines-terraform#1113 f5 residual: an ENOENT readdirSync failure (legitimately absent) does not warn', () => {
+        const originalReaddir = fs.readdirSync;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (fs as any).readdirSync = () => {
+            const err = new Error('ENOENT: no such file or directory') as NodeJS.ErrnoException;
+            err.code = 'ENOENT';
+            throw err;
+        };
+        try {
+            assert.strictEqual(manifest.findKbArticleJson(), null);
+            assert.strictEqual(capturedWarnings.length, 0, `expected no warning for the legitimately-absent case: ${capturedWarnings}`);
+        } finally {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (fs as any).readdirSync = originalReaddir;
         }
     });
 
