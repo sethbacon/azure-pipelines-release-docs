@@ -35,6 +35,9 @@ import './CssEscapeBypassL0';
 import './AllowlistSanitizerL0';
 import './MetaRefreshExternalOriginL0';
 import './PrototypeSafeLookupClassL0';
+// End-to-end coverage for index.ts's SIGTERM/SIGINT/uncaughtException/
+// unhandledRejection registration (azure-pipelines-terraform#1113, suite-scope residual).
+import './SignalHandlerL0';
 
 // ---------------------------------------------------------------------------
 // Helpers
