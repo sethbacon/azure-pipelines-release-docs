@@ -105,6 +105,10 @@ jobs:
         run: node scripts/check-enforced-disciplines.js
       - name: Self-test check-enforced-disciplines.js
         run: node scripts/test-check-enforced-disciplines.js
+      - name: Shared-module pins in lockstep (#1108 class signature)
+        run: node scripts/check-shared-module-pins.js
+      - name: Self-test check-shared-module-pins.js
+        run: node scripts/test-check-shared-module-pins.js
       # check-proxy-parity has been wrong twice -- once reporting no call sites
       # for a task that makes them, once attributing a locally defined function
       # to a package by name alone. Both changed the inventory silently, which
