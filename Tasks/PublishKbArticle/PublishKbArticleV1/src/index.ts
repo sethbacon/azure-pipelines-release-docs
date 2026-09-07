@@ -435,6 +435,9 @@ async function run() {
                 if (result.missing.length > 0) {
                     console.log(tasks.loc('ImagesMissingSummary', result.missing.length));
                 }
+                if (result.refused.length > 0) {
+                    tasks.warning(tasks.loc('ImagesRefusedSummary', result.refused.length, result.refused.join(', ')));
+                }
             } catch (error) {
                 // executeCreateOrUpdate above may already have set workflow_state to
                 // 'published' as part of the SAME create/update call -- ServiceNow has
