@@ -61,7 +61,7 @@ describe('conventional: parsing', () => {
 
     it('finds a BREAKING CHANGE footer buried in a real squash-merge (COMMIT_MESSAGES) message', () => {
         // Reproduces this repository's own squash shape verbatim, not a hand-invented one --
-        // see .github/commit-message-check/verify.mjs, whose `body` line is
+        // see the shared commit-message-check action (4cloudguru/shared-workflows), whose `body` line is
         // `source.map(commit => \`* ${commit.message}\`).join('\n\n')` under this repo's actual
         // squash settings (COMMIT_OR_PR_TITLE / COMMIT_MESSAGES, confirmed live via
         // `gh api repos/sethbacon/azure-pipelines-release-docs`). This task only ever reads

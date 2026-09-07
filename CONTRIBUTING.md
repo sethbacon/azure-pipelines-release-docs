@@ -34,7 +34,7 @@ write each one up. A footer and a `!` header in the same commit are one declarat
 fine. Two required checks guard this: `Breaking-change footers survive the squash` counts declarations
 across the PR's commits, and `release-please can read the merged commit` builds the exact message this
 PR would squash into `main` and parses it with release-please's own parser
-(`.github/commit-message-check/verify.mjs`).
+(the shared `commit-message-check` action in `4cloudguru/shared-workflows`).
 
 ## Prerequisites
 
