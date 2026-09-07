@@ -14,6 +14,9 @@ import fs = require('fs');
 import os = require('os');
 import path = require('path');
 import tasks = require('azure-pipelines-task-lib/task');
+// End-to-end coverage for index.ts's SIGTERM/SIGINT/uncaughtException/
+// unhandledRejection registration (azure-pipelines-terraform#1113, suite-scope residual).
+import './SignalHandlerL0';
 
 import { parseCommit, parseCommits, hasReleasableChange, isRendered } from '../src/conventional';
 import { parseVersion, formatVersion, bumpTypeFor, applyBump, nextVersion } from '../src/version';
