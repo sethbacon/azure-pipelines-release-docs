@@ -1,4 +1,5 @@
 import tasks = require('azure-pipelines-task-lib/task');
+import { readSecretInput } from '@4cloudguru/pipeline-task-ado';
 import fs = require('fs');
 import path = require('path');
 
@@ -147,7 +148,7 @@ async function run(): Promise<void> {
             collectionUri: tasks.getVariable('System.TeamFoundationCollectionUri') || '',
             project: tasks.getVariable('System.TeamProject') || '',
             repositoryId: tasks.getVariable('Build.Repository.ID') || '',
-            token: resolveToken(tasks.getInput('accessToken', false)),
+            token: resolveToken(readSecretInput('accessToken', false)),
         };
         if (!connection.collectionUri || !connection.project || !connection.repositoryId) {
             throw new Error(tasks.loc('PipelineContextMissing'));

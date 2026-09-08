@@ -3,7 +3,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = process.argv[2] || 'C:/dev/wt/rd-changelog';
+// Defaults to the repository this script lives in. It used to default to one
+// contributor's absolute Windows path, so running it anywhere else wrote the
+// file into a directory that does not exist and crashed.
+const ROOT = process.argv[2] || path.resolve(__dirname, '..');
 const TASKS = [
   ['PipelineChangelog', 'Tasks/Changelog/ChangelogV1'],
   ['PipelineMarkdown2Html', 'Tasks/Markdown2Html/Markdown2HtmlV1'],
