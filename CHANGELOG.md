@@ -10,6 +10,17 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.3](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.2...v1.1.3) (2026-09-08)
+
+
+### Bug Fixes
+
+* fail the proxy-parity gate when a version floor falls behind the fleet ([#184](https://github.com/sethbacon/azure-pipelines-release-docs/issues/184)) ([219753b](https://github.com/sethbacon/azure-pipelines-release-docs/commit/219753b7919fdd0fed515af44fcb74c15c442990))
+* pin certificate verification on the ServiceNow transport ([#187](https://github.com/sethbacon/azure-pipelines-release-docs/issues/187)) ([bf0d8ba](https://github.com/sethbacon/azure-pipelines-release-docs/commit/bf0d8bac8fe8f58b77f424aa5d6007896e1eb52f))
+* read every credential-capable input through the package silent readers ([#188](https://github.com/sethbacon/azure-pipelines-release-docs/issues/188)) ([0290cf3](https://github.com/sethbacon/azure-pipelines-release-docs/commit/0290cf313c3cf1ae3c39e1c1f0d9ec4ddf5eeb0b))
+* refuse SVG image attachments in PublishKbArticle (WIP, azure-pipelines-terraform[#1106](https://github.com/sethbacon/azure-pipelines-release-docs/issues/1106) finding 1) ([#185](https://github.com/sethbacon/azure-pipelines-release-docs/issues/185)) ([fadb0e6](https://github.com/sethbacon/azure-pipelines-release-docs/commit/fadb0e66e56e0bb9bfc0fda5072e1fc1193471ed))
+* reject overlay CSS in a published document's head and namespace author-supplied id/name (WIP, azure-pipelines-terraform[#1106](https://github.com/sethbacon/azure-pipelines-release-docs/issues/1106) findings 2 and 3) ([#186](https://github.com/sethbacon/azure-pipelines-release-docs/issues/186)) ([0458b6d](https://github.com/sethbacon/azure-pipelines-release-docs/commit/0458b6df57d825fcc201c01bf72f3e317b7a1958))
+
 ## [1.1.2](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.1...v1.1.2) (2026-09-07)
 
 
