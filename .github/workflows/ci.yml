@@ -119,6 +119,13 @@ jobs:
         run: node scripts/check-proxy-parity.js
       - name: Shared-module parity (byte-identity across both tasks)
         run: node scripts/check-shared-modules.js
+      # The real cross-repo comparison needs a checkout of azure-pipelines-
+      # terraform, which only the scheduled `cross-repo-parity` job in
+      # weekly-security.yml brings in. What runs here is the comparison
+      # LOGIC's self-test, against a synthetic fixture pair, so it is proved
+      # on every pull request rather than only when Monday's schedule fires.
+      - name: Self-test check-cross-repo-parity.js
+        run: node scripts/test-check-cross-repo-parity.js
 
   build:
     name: Build and Test (${{ matrix.os }})
