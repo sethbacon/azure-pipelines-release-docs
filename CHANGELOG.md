@@ -10,6 +10,19 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.2](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.1...v1.1.2) (2026-09-07)
+
+
+### Bug Fixes
+
+* add uncaughtException/unhandledRejection guards to all three tasks ([#172](https://github.com/sethbacon/azure-pipelines-release-docs/issues/172)) ([87497a3](https://github.com/sethbacon/azure-pipelines-release-docs/commit/87497a356040f4e48982e95e3146cef3169dbb0f))
+* surface non-ENOENT KB-json scan failures, name the sys_id on a mid-loop abort ([#173](https://github.com/sethbacon/azure-pipelines-release-docs/issues/173)) ([d526480](https://github.com/sethbacon/azure-pipelines-release-docs/commit/d526480edf9cf626b63f15977ff28bf2ba4aacf1))
+
+
+### Dependencies
+
+* pin @4cloudguru/pipeline-task-core ^0.9.0 in both consuming tasks ([#182](https://github.com/sethbacon/azure-pipelines-release-docs/issues/182)) ([65033c6](https://github.com/sethbacon/azure-pipelines-release-docs/commit/65033c665a61321f196b5c64c095741b7121d02c))
+
 ## [1.1.1](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.0...v1.1.1) (2026-09-04)
 
 
