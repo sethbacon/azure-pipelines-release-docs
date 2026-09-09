@@ -181,8 +181,9 @@ action's source, not guessed from this repository's own workflow file.
 | Availability consequence | If `4cloudguru/shared-workflows` removes or breaks `release-pr-closing-keywords`, or this workflow file is removed or renamed, the context stops posting entirely and `main` blocks every pull request here — and, because the workflow is byte-identical, in `azure-pipelines-terraform` and `azure-pipelines-packer` too. |
 | Preserve on any protection PUT | Yes. `PUT /repos/<owner>/<repo>/branches/main/protection` replaces `required_status_checks.contexts` wholesale, so a payload assembled without reading this table silently drops the context rather than erroring. |
 
-Machine-checked by `scripts/check-docs-claims.js` (CI's `Check Documented Claims` job runs it) — a
-workflow named here that cannot actually post the context fails the build:
+Machine-checked by `4cloudguru/shared-workflows`' `check-docs-claims` composite action (CI's
+`Check Documented Claims` job runs it at a full-SHA pin) — a workflow named here that cannot
+actually post the context fails the build:
 
 <!-- required-checks:begin -->
 | Context | Workflow |
@@ -208,7 +209,6 @@ npm run check:versions    # declared task universe, task versions/GUIDs/name pre
                           # task version monotonicity against the base revision,
                           # version agreement between azure-devops-extension.json
                           # and release-please, and the configs/ publish identity
-npm run check:docs-claims # documented claims vs. what the workflows actually do
 npm run check:composition # what the .vsix would contain, and whether the manifest
                           # promises anything that is not in it
 npm run check:audit-scope # whether the required "Dependency audit" job inspects a
@@ -223,6 +223,23 @@ The Marketplace publish itself (retries, token kept off argv) is
 4cloudguru/shared-workflows' `publish-marketplace` composite action, shared
 with azure-pipelines-terraform and azure-pipelines-packer; its self-test lives
 there, not in this repo.
+
+Two gates now come from that repository the same way, as composite actions pinned to a full commit
+SHA in `.github/workflows/ci.yml`: `check-docs-claims` (run by `Check Documented Claims`) and
+`check-shared-module-pins` (run by `Check Version Consistency`). Neither has an `npm run` alias here,
+deliberately — every other `check:*` script runs a file this repository carries, and an alias standing
+for something outside the tree would fail for anyone without a sibling checkout while making a shared
+gate look locally owned. To run either against this working tree, check `shared-workflows` out beside
+this repository (the layout the estate's signature replay uses) and invoke it directly:
+
+```bash
+node ../shared-workflows/.github/actions/check-docs-claims/check-docs-claims.js .
+node ../shared-workflows/.github/actions/check-shared-module-pins/check-shared-module-pins.js .
+```
+
+Both take the repository root positionally and accept `--json`; both are dependency-free, so no
+install is needed in that checkout. Their mutation self-tests live there too, beside the
+implementations, which is why this repository no longer carries a `test-check-*` for either.
 
 `check:versions`, `check:composition`, `test:composition` and `test:gates` all run in the required
 `Check Version Consistency` CI job; `check:audit-scope` runs in `Dependency audit`, ahead of the
@@ -268,7 +285,7 @@ Commits follow Conventional Commits; releases are cut by release-please.
 > self-review/admin-bypass and `v*` tag protection settings (#50, #51).
 >
 > `SECURITY.md` carries the machine-checked form: its **Supply chain controls** table lists each
-> control as `enforced` or `planned`, and `scripts/check-docs-claims.js` fails the build in both
+> control as `enforced` or `planned`, and the shared `check-docs-claims` gate fails the build in both
 > directions — a control claimed but absent, and a control implemented while the table still calls it
 > planned. That second direction is what moved all four rows in the same change that landed the
 > workflow, and what stops these two documents drifting apart again.

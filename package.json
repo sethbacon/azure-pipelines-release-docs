@@ -26,7 +26,6 @@
     "smoke:all": "node scripts/for-each-task.js smoke",
     "audit:all": "node scripts/for-each-task.js audit",
     "check:versions": "node scripts/check-versions.js",
-    "check:docs-claims": "node scripts/check-docs-claims.js",
     "check:composition": "node scripts/check-package-composition.js",
     "check:shared": "node scripts/check-shared-modules.js",
     "sync:shared": "node scripts/check-shared-modules.js --fix",

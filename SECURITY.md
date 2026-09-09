@@ -89,8 +89,9 @@ approval nobody could ever give (#50). The environment is consequently a self-re
 an independent second-party check — an honest, working control for a one-person project, not the
 stronger guarantee the phrase "environment protection" might otherwise imply.
 
-This table is machine-checked: `scripts/check-docs-claims.js` (CI job **Check Documented Claims**)
-reads it on every pull request and compares each row against `.github/workflows/`. The comparison
+This table is machine-checked: `4cloudguru/shared-workflows`' `check-docs-claims` composite action,
+run by the CI job **Check Documented Claims** at a full-SHA pin, reads it on every pull request and
+compares each row against `.github/workflows/`. The comparison
 runs in both directions. A row marked `enforced` that no workflow implements fails the build — that is
 the defect this table replaces. A row marked `planned` whose control has appeared in a workflow fails
 it too, which is the direction that moved these four rows: the publish path landing and the table
@@ -118,8 +119,11 @@ every pull request to `main`, and all of them are configured as required status 
   `Major`/`Minor`/`Patch`, a GUID-shaped unique `id`, and a unique name with the `Pipeline` prefix;
   the base extension manifest must keep `"public": false`. It never reads `configs/`, so which
   override may opt into a public listing is convention rather than a gate (#43).
-- **Check Documented Claims** — `scripts/check-docs-claims.js`. The control table above, and every
-  repo-relative path these documents name.
+- **Check Documented Claims** — `4cloudguru/shared-workflows`' `check-docs-claims` composite action,
+  pinned to a full commit SHA in `.github/workflows/ci.yml`. The control table above, and every
+  repo-relative path these documents name. The gate is taken from that repository at the pinned
+  commit, so there is no local copy to weaken, and its mutation self-test runs there beside the gate
+  rather than here beside a fork of it.
 - **Workflow Hardening** — `4cloudguru/shared-workflows`' `workflow-hardening.yml`: full-SHA action
   pinning, `--ignore-scripts` on every install, a `timeout-minutes` on every job, an egress
   policy that is either `block` with an endpoint allowlist or `audit` with the reason written on the
