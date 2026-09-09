@@ -105,10 +105,14 @@ jobs:
         run: node scripts/check-enforced-disciplines.js
       - name: Self-test check-enforced-disciplines.js
         run: node scripts/test-check-enforced-disciplines.js
+      # The gate itself now lives in 4cloudguru/shared-workflows as a composite
+      # action, replacing the hand-copy that used to sit in scripts/. A composite
+      # is a STEP inside this job, so "Check Version Consistency" keeps its name
+      # and the required context does not move. Its own mutation self-test runs in
+      # shared-workflows' CI, beside the implementation it protects, which is why
+      # the `Self-test check-shared-module-pins.js` step that stood here is gone.
       - name: Shared-module pins in lockstep (#1108 class signature)
-        run: node scripts/check-shared-module-pins.js
-      - name: Self-test check-shared-module-pins.js
-        run: node scripts/test-check-shared-module-pins.js
+        uses: 4cloudguru/shared-workflows/.github/actions/check-shared-module-pins@c4694311531adcddc243fff1894398920f88a1f9 # main c469431, pre-v1.23.0
       # check-proxy-parity has been wrong twice -- once reporting no call sites
       # for a task that makes them, once attributing a locally defined function
       # to a package by name alone. Both changed the inventory silently, which
@@ -247,11 +251,19 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
-      # No install step: the script uses node builtins and `git check-ignore`
-      # only, so it runs before and independently of any dependency tree.
-      - run: node scripts/check-docs-claims.js
-      - name: Self-test check-docs-claims.js
-        run: node scripts/test-check-docs-claims.js
+      # No install step: the gate uses node builtins and `git check-ignore` only,
+      # so it runs before and independently of any dependency tree.
+      #
+      # The gate itself now lives in 4cloudguru/shared-workflows as a composite
+      # action, replacing the hand-copy that used to sit in scripts/ -- this
+      # repository's copy was four comment lines behind canonical when it was
+      # deleted. A composite is a STEP inside this job, so "Check Documented
+      # Claims" keeps its name and the required context does not move. Its own
+      # mutation self-test runs in shared-workflows' CI, beside the
+      # implementation it protects, which is why the `Self-test
+      # check-docs-claims.js` step that stood here is gone.
+      - name: Documented claims match what this repository implements
+        uses: 4cloudguru/shared-workflows/.github/actions/check-docs-claims@c4694311531adcddc243fff1894398920f88a1f9 # main c469431, pre-v1.23.0
       # SECURITY.md's documented OIDC subject (owner/repo/environment) vs the
       # release.yml job that actually requests the token and the extension
       # manifest's declared repository -- see the script header.

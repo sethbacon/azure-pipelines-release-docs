@@ -94,8 +94,11 @@ function readJson(rel) {
 }
 
 /**
- * release.yml with whole-line comments removed, matching
- * scripts/check-docs-claims.js. These workflows are heavily commented and a
+ * release.yml with whole-line comments removed, matching the shared
+ * check-docs-claims gate (4cloudguru/shared-workflows'
+ * .github/actions/check-docs-claims, run by the Check Documented Claims job;
+ * it used to be a hand-copy at scripts/check-docs-claims.js here). These
+ * workflows are heavily commented and a
  * check that fired on a comment would make describing a control accurately into
  * a build failure. Only YAML that actually runs is searched.
  */

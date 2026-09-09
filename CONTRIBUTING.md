@@ -85,7 +85,10 @@ npm install                           # or Tasks/PublishKbArticle/PublishKbArtic
      agreement with release-please, and the `configs/` publish-identity rules
      (`scripts/check-versions.js`), plus package composition (`scripts/check-package-composition.js`)
      and release-readiness preconditions (`scripts/check-release-readiness.js`), each with its own
-     mutation self-test run in the same job.
+     mutation self-test run in the same job. It also runs `4cloudguru/shared-workflows`'
+     `check-shared-module-pins` composite action, pinned to a full commit SHA, which holds every
+     task's resolved `@4cloudguru/pipeline-task-core` and `@4cloudguru/pipeline-task-ado` in lockstep;
+     that gate's own self-test runs in `shared-workflows`, beside the implementation.
    - `Build and Test` — on Ubuntu and Windows: installs each task's dependencies, compiles, and runs
      `npm run test:all`, then re-runs the compiled entry point of every task under Node 20 (the
      `Node20_1` execution-handler fallback) to prove it still loads there.
@@ -100,7 +103,8 @@ npm install                           # or Tasks/PublishKbArticle/PublishKbArtic
    - `Workflow Security Record` — the same zizmor scan again, in SARIF mode, so findings land in the
      Security tab where one can be dismissed with a reason that outlives the run. It is a reporter, not
      a gate: in that mode zizmor exits 0 whatever it finds, so `Workflow Security` above is what blocks.
-   - `Check Documented Claims` — `scripts/check-docs-claims.js` checks this file's own `ci-jobs` region
+   - `Check Documented Claims` — runs `4cloudguru/shared-workflows`' `check-docs-claims` composite
+     action, pinned to a full commit SHA, which checks this file's own `ci-jobs` region
      against this workflow (bidirectionally — an undocumented job or a documented one that no longer
      exists both fail), every backticked `Tasks/`, `scripts/`, `docs/`, `configs/`, `images/` or
      `.github/` path referenced from `README.md`/`SECURITY.md`/`CONTRIBUTING.md`/`CLAUDE.md`/`overview.md`
@@ -108,8 +112,12 @@ npm install                           # or Tasks/PublishKbArticle/PublishKbArtic
      actually run.
    <!-- ci-jobs:end -->
 
-   This list is checked against `.github/workflows/ci.yml` by `scripts/check-docs-claims.js`, in both
-   directions, so it cannot drift as jobs are added, renamed, or removed.
+   This list is checked against `.github/workflows/ci.yml` by that shared `check-docs-claims` action,
+   in both directions, so it cannot drift as jobs are added, renamed, or removed. To run it against
+   your working tree before pushing, check `shared-workflows` out beside this repository and invoke
+   the gate directly — `node ../shared-workflows/.github/actions/check-docs-claims/check-docs-claims.js .`
+   — there is no `npm run` alias, because an alias here would stand for a file this repository does
+   not carry.
 
    `.github/workflows/pr-checks.yml` gates the PR as well: `PR title convention`, `Dependency review`
    (`fail-on-severity: high`), and the two release-parsing guards described above,
