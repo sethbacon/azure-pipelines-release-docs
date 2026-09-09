@@ -159,3 +159,82 @@ jobs:
             echo 'not the scanner image. See the comment at the top of this job and the residual risks'
             echo 'in SECURITY.md.'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── Cross-repository shared-module parity ─────────────────────────────────
+  # The two ServiceNow tasks' sanitizer/URI-guard modules (html-sanitizer.ts,
+  # uri-scheme-guard.ts) are PROVENANCE copies of files that still live, and
+  # are still deprecated-but-present, in azure-pipelines-terraform
+  # (azure-pipelines-terraform#1046). Every in-repo duplication this extension
+  # carries is guarded by scripts/check-shared-modules.js's byte-identity
+  # FAMILIES check; a copy across a REPOSITORY boundary cannot be byte-compared
+  # that way, because the upstream tree is never checked out in a normal
+  # pull-request build (azure-pipelines-terraform#1112 finding 1, deferred
+  # until this repository's first release -- v1.0.2 shipped 2026-08-30, so the
+  # trigger is met). Until now the two copies were held in sync only by the
+  # fact that every fix to either task was applied to both repositories by
+  # hand.
+  #
+  # This job is where the second checkout the comparison needs actually
+  # happens: scripts/check-cross-repo-parity.js's own self-test
+  # (scripts/test-check-cross-repo-parity.js) runs on every pull request from a
+  # synthetic fixture pair, in ci.yml, beside the other gate self-tests -- but
+  # the REAL comparison needs azure-pipelines-terraform's tree, which only this
+  # scheduled job checks out.
+  #
+  # NOT wired into an issue-on-failure job, unlike the sibling extensions'
+  # weekly-security.yml. This file's own header, above, explains why one was
+  # not ported here at all: issue-filing needs `security`/`dependencies`
+  # labels this repository did not carry when that decision was made. Adding
+  # one JUST for this job would notify differently than its two neighbours
+  # (`ci`, `osv-scan`) in the same file for no reason specific to this check --
+  # revisit all three together if a shared failure-issue job is ever adopted
+  # here. Until then, a divergence fails this job, which is already this
+  # workflow's documented notification for a scheduled run (see the "TWO JOBS"
+  # note at the top of this file): the same way `ci` and `osv-scan` notify
+  # today.
+  cross-repo-parity:
+    name: Cross-repo shared-module parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      # The only egress this job needs is the two checkouts, both against
+      # github.com, so -- unlike `ci` and `osv-scan` above -- this one runs
+      # `block` rather than `audit` from its first execution: the endpoint set
+      # is fully known up front rather than needing an observed baseline.
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            github.com:443
+
+      - name: Checkout this repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Public repository, no token: an authenticated request carrying a token
+      # that has no relationship to this OTHER repository is rejected outright
+      # rather than falling back to an anonymous read, so `token: ''` is what
+      # makes this an unauthenticated clone instead of a 401.
+      - name: Checkout azure-pipelines-terraform (upstream, public, no token)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: sethbacon/azure-pipelines-terraform
+          ref: main
+          path: upstream-azure-pipelines-terraform
+          token: ''
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          # Nothing here asks for a cache, but setup-node turns one on by
+          # itself once package.json declares a packageManager -- silently.
+          # Stated so it cannot arrive as a side effect of an unrelated edit,
+          # and so it never needs an endpoint added to the block list above.
+          package-manager-cache: false
+
+      - name: Cross-repo shared-module parity
+        run: node scripts/check-cross-repo-parity.js upstream-azure-pipelines-terraform
