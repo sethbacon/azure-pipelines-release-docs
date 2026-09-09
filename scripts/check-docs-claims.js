@@ -178,10 +178,21 @@ const CONTROLS = {
     // that echoes "## OSV-Scanner results" into the job summary, so deleting the
     // scanner and keeping the heading left this row reading `enforced` and the
     // gate reporting OK — caught by mutating it, which is the only way that kind
-    // of thing is ever caught. If this control is ever reimplemented as a
-    // checksum-verified binary download (see SECURITY.md's residual risk about
-    // the mutable image tag), this expression has to move with it.
-    detect: () => inWorkflows(/uses:\s*\S*osv-scanner/i),
+    // of thing is ever caught.
+    //
+    // Widened `osv-scanner` -> `osv-scan` on 2026-09-09, and this is the move
+    // the paragraph above predicted would be needed. weekly-security.yml no
+    // longer calls google/osv-scanner-action directly; it calls
+    // 4cloudguru/shared-workflows' `.github/actions/osv-scan`, which runs the
+    // same scanner in a digest-pinned image and reports the exit code. The old
+    // expression required the literal "osv-scanner", so the port would have
+    // left this row claiming `enforced` over a control the gate could no
+    // longer see — the failure mode is inverted from the one above but it is
+    // the same drift. The shortened stem still matches the official action's
+    // path (`osv-scanner-action` contains `osv-scan`), so a repository that
+    // has not ported yet is detected too, and the `uses:` anchor keeps the
+    // job-summary heading from satisfying it.
+    detect: () => inWorkflows(/uses:\s*\S*osv-scan/i),
   },
   'sbom-attestation': {
     summary: 'an SBOM is generated and attested by a workflow',
