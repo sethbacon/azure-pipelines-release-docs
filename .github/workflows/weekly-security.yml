@@ -317,16 +317,16 @@ jobs:
 
       # Public repository, no token: an authenticated request carrying a token
       # that has no relationship to this OTHER repository is rejected outright
-      # rather than falling back to an anonymous read, so `token: ''` is what
-      # makes this an unauthenticated clone instead of a 401.
-      - name: Checkout azure-pipelines-terraform (upstream, public, no token)
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: sethbacon/azure-pipelines-terraform
-          ref: main
-          path: upstream-azure-pipelines-terraform
-          token: ''
-          persist-credentials: false
+      # rather than falling back to an anonymous read, so the clone has to be
+      # unauthenticated. actions/checkout cannot express that: `token: ''` is
+      # refused before the step runs ("Input required and not supplied: token"),
+      # which is how this job failed on its first execution, 2026-09-09. A plain
+      # git clone over https sends no credential at all, which is what the
+      # comment above always meant. github.com:443 is already the one endpoint
+      # the block policy admits, and the parity script only reads the working
+      # tree, so a shallow clone of main is the whole requirement.
+      - name: Clone azure-pipelines-terraform (upstream, public, anonymous)
+        run: git clone --quiet --depth 1 --branch main https://github.com/sethbacon/azure-pipelines-terraform.git upstream-azure-pipelines-terraform
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
