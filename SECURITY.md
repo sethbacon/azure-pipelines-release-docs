@@ -91,9 +91,8 @@ stronger guarantee the phrase "environment protection" might otherwise imply.
 
 This table is machine-checked: `4cloudguru/shared-workflows`' `check-docs-claims` composite action,
 run by the CI job **Check Documented Claims** at a full-SHA pin, reads it on every pull request and
-compares each row against `.github/workflows/`. The comparison
-runs in both directions. A row marked `enforced` that no workflow implements fails the build — that is
-the defect this table replaces. A row marked `planned` whose control has appeared in a workflow fails
+compares each row against `.github/workflows/`. The comparison runs in both directions. A row marked
+`enforced` that no workflow implements fails the build — that is the defect this table replaces. A row marked `planned` whose control has appeared in a workflow fails
 it too, which is the direction that moved these four rows: the publish path landing and the table
 staying still would have been the same drift pointing the other way.
 
