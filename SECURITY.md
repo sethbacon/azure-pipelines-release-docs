@@ -236,6 +236,29 @@ Recorded here as they are accepted, with the reasoning and the decision date.
   #58 asked for the family's layer rather than a divergent one. What bounds it meanwhile: the job is
   scheduled rather than merge-blocking, holds no stored credential, runs on `contents: read`, and
   reads a tree with no production dependencies.
+- **`adm-zip` 0.6.0 (GHSA-vwc7-r8mq-g2x9) is suppressed in each task's `osv-scanner.toml`**
+  (2026-09-09, tracked across the extension family in `sethbacon/azure-pipelines-packer#435`). The
+  advisory is a symlink-following flaw on extraction, rated moderate, and **no patched version
+  exists**: the GitHub advisory records `first_patched_version: none`, 0.6.0 is still the latest
+  release, and the upstream fix `cthackers/adm-zip#575` is open. There is therefore nothing an
+  `overrides` entry could name — the `"adm-zip": "^0.6.0"` already in each task's `package.json` holds
+  the newest thing published, not a fix. What makes this an acceptance rather than an unfixed
+  exposure is that the vulnerable code is never loaded. `adm-zip` is reached only through
+  `azure-pipelines-task-lib`, which declares `adm-zip ^0.6.0`, and the Node package **never requires
+  it**: in the installed 5.279.0 tree the string appears in `package.json` and in no shipped file,
+  because the dependency belongs to task-lib's PowerShell library, which these tasks do not ship
+  (`microsoft/azure-pipelines-task-lib#1202`, closed 2026-08-26). Nor is it reached another way: no
+  task in this extension extracts an archive at all — `ChangelogV1` reads git history,
+  `Markdown2HtmlV1` renders markdown, `PublishKbArticleV1` posts over HTTP — and no source file here
+  requires `adm-zip` or any other unzip path. The suppression is **bounded at 2026-12-31**,
+  deliberately shorter than an open-ended acceptance because a fix is actively in progress upstream;
+  re-evaluate at expiry or when `adm-zip` > 0.6.0 ships, whichever comes first. Each
+  `osv-scanner.toml` sits **beside the lockfile it covers**
+  (`Tasks/Changelog/ChangelogV1/osv-scanner.toml`,
+  `Tasks/Markdown2Html/Markdown2HtmlV1/osv-scanner.toml`,
+  `Tasks/PublishKbArticle/PublishKbArticleV1/osv-scanner.toml`) rather than at the repository root,
+  because a root file does not reach nested lockfiles under `--recursive`. `npm audit` does not read
+  these files, so it will keep reporting `adm-zip`; that is expected and is not a second finding.
 - **Cross-repository shared-module parity is checked weekly, not on every commit** (2026-09-08,
   `sethbacon/azure-pipelines-terraform#1112` finding 1). `Markdown2Html`'s `html-sanitizer.ts` and
   `uri-scheme-guard.ts` are PROVENANCE copies of files that still live in `azure-pipelines-terraform`
