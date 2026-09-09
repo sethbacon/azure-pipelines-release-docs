@@ -31,9 +31,19 @@ name: Weekly Security Scan
 #     without a `stale-security-patch` label it fails silently and reports
 #     success — a canary that cannot chirp. If that label is created here, port
 #     it then.
-#   * The "create an issue on failure" job. A scheduled workflow that fails
-#     already notifies the repository's maintainer, and issue-filing needs
-#     `security`/`dependencies` labels that this repository does not carry.
+#   * A standalone "create an issue on failure" job covering the whole
+#     workflow. When this file was first written there was no issue-filing
+#     anywhere in it, because issue-filing needs `security` and `dependencies`
+#     labels this repository did not carry then. It carries both now, and
+#     `osv-scan` below files against them — a finding opens (or comments on) a
+#     tracking issue instead of only reddening Monday, which is what the
+#     2026-09-07 scheduled run showed was needed: it failed at "Run
+#     OSV-Scanner" with exit 1 and notified nobody who was not already reading
+#     run histories. What is still not ported is the WORKFLOW-WIDE version:
+#     `ci` and `cross-repo-parity` notify by failing, as before. The osv job
+#     can do better than they can because the shared action it now calls
+#     reports whether the scanner found something or merely broke; the other
+#     two have no such signal to file on.
 #   * A marketplace-environment-protection canary. `scripts/check-release-
 #     readiness.js` deliberately FAILS today — `azure-devops-extension.json`
 #     declares no contributions, so there is nothing publishable — and a check
@@ -66,40 +76,59 @@ jobs:
     uses: ./.github/workflows/ci.yml
 
   # ── OSV-Scanner ───────────────────────────────────────────────────────────
-  # WHAT THE SHA PIN DOES AND DOES NOT COVER. Read this before treating the pin
-  # below as an integrity control.
+  # WHAT THE SHA PIN COVERS. This changed on 2026-09-09, and the history is
+  # kept rather than replaced: what follows used to be a stated, accepted
+  # limitation, and a reader who finds only the current state cannot tell
+  # whether it was ever thought about.
   #
-  # `google/osv-scanner-action/osv-scanner-action` is a DOCKER action. Its
-  # action.yml — the file this SHA pins — is four lines of metadata whose only
-  # substantive content is:
+  # UNTIL 2026-09-09 this job called `google/osv-scanner-action/osv-scanner-
+  # action` directly. That is a DOCKER action: the action.yml a SHA pins is
+  # four lines of metadata whose only substantive content is
   #
   #     runs:
   #       using: "docker"
-  #       image: "docker://ghcr.io/google/osv-scanner-action:v2.5.0"
+  #       image: "docker://ghcr.io/google/osv-scanner-action:v2.5.1"
   #
-  # `v2.5.0` there is a MUTABLE TAG on a registry this repository does not
-  # control. The pin therefore fixes which action.yml runs and NOT which scanner
-  # binary runs: whoever can push to that ghcr tag replaces the code executing
-  # in this job, and neither the pin, nor Dependabot, nor this repository's
-  # own full-SHA gate would see it. `azure-pipelines-packer#261` bumped this
-  # action 2.3.8 -> 2.5.0 without that being said anywhere, which is exactly how
-  # a limitation gets inherited instead of accepted.
+  # — a MUTABLE TAG on a registry this repository does not control. The pin
+  # fixed which action.yml ran and NOT which scanner binary ran: whoever could
+  # push that ghcr tag replaced the code executing in this job, and neither the
+  # pin, nor Dependabot, nor this repository's own full-SHA gate would have
+  # seen it. `sethbacon/azure-pipelines-packer#261` moved that action
+  # 2.3.8 -> 2.5.0 with none of it said anywhere, which is how a limitation
+  # gets inherited instead of accepted. It was accepted here, with a date, in
+  # SECURITY.md's residual risks, because the image reference lived INSIDE the
+  # third-party action and there was nothing this repository could pass to pin
+  # it.
   #
-  # Accepted rather than fixed, and the reasons are worth being explicit about:
-  # the image reference lives INSIDE the third-party action, so there is nothing
-  # this repository can pass to pin it; the alternative is to stop using the
-  # action and run the scanner binary from a checksum-verified release download,
-  # which is what the actionlint step in ci.yml does and is a bigger change than
-  # #58 asks for. What bounds the exposure meanwhile is where this runs: a
-  # scheduled job, on `contents: read`, holding no stored credential, on a tree
-  # with no production dependencies. It is recorded in SECURITY.md's residual
-  # risks so that it is a decision with a date on it rather than an assumption.
+  # THAT REASON NO LONGER HOLDS. The estate's shared `osv-scan` action takes
+  # the image as an input and defaults it to a DIGEST — v2.5.1 at
+  # sha256:dcd947131d8d11b8d0964de6590661fb921a4ecbd7b90a7cb21083acfc3fd8cc —
+  # so the scanner that runs is fixed by content rather than by a tag someone
+  # else can re-point, and pinning that action by SHA now pins the scanner too.
+  # That is what #58 asked for, arriving as the family's shared layer rather
+  # than a divergent local one, which is why the checksum-verified binary
+  # download described as the alternative was never built here.
+  #
+  # THE SECOND THING IT FIXES is why the 2026-09-07 run was useless. The
+  # official action gives its caller one bit — the step passed or it did not —
+  # so a scan that found something and a scanner that had stopped working are
+  # the same red, and neither can be acted on differently. That run failed at
+  # "Run OSV-Scanner" with exit 1, over three real adm-zip rows and two qs
+  # rows, and filed nothing. The shared action reports the real exit code and
+  # separates `findings` from `errored`, so this job files an issue for a
+  # finding and fails outright for a broken scanner. Findings no longer redden
+  # Monday; they open a ticket.
+  #
+  # What still bounds this job either way: scheduled rather than
+  # merge-blocking, `contents: read` plus the one `issues: write` the filing
+  # step needs, and no stored credential.
   osv-scan:
     name: OSV Vulnerability Scan
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
+      issues: write
     steps:
       # hardening-exception: egress-audit — this job holds no stored credential
       # and its egress is a container pull from ghcr plus the scanner's own
@@ -118,15 +147,28 @@ jobs:
         with:
           persist-credentials: false
 
-      # No `continue-on-error:` here, unlike the sibling. That flag rewrites a
-      # failed step's `conclusion` to `success`, and the sibling then reads
-      # `outcome` to file an issue — a design that needs the issue-filing job
-      # this port does not have. Without it, a finding turns this scheduled run
-      # red, which is the notification. The tree has no production dependencies
-      # today, so a permanently-red Monday is not the risk here; a silently
-      # green one is.
+      # THE SHARED ACTION, NOT THE OFFICIAL ONE, AND STILL NO
+      # `continue-on-error:` — for a different reason than before.
+      #
+      # `continue-on-error` was never used here, and the note that used to sit
+      # on this step explained why: it rewrites a failed step's `conclusion` to
+      # `success`, so a scanner that had stopped working produced exactly the
+      # same green as one that ran and found nothing. That was the right call
+      # and it left this job with the opposite defect — a finding, which is not
+      # a failure, still failed the run, and nothing downstream could tell the
+      # two apart to do anything about either.
+      #
+      # The shared action resolves both. It runs the scanner in a
+      # digest-pinned image, reports the exit code it ACTUALLY got, and
+      # publishes it as `outputs.exit-code`, `outputs.findings` and
+      # `outputs.errored`. Findings do not fail this step; the step below reads
+      # `findings` and files. A scanner ERROR — any exit that is neither 0 nor
+      # 1 — still fails the job immediately, which is the one case where red is
+      # the correct signal, because a scan that did not complete says nothing
+      # about the tree.
       - name: Run OSV-Scanner
-        uses: google/osv-scanner-action/osv-scanner-action@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
+        id: osv
+        uses: 4cloudguru/shared-workflows/.github/actions/osv-scan@3aae0966a70daa50bcfe741ef07e20e86c814af4 # v1.20.2
         with:
           scan-args: |-
             --recursive
@@ -134,8 +176,13 @@ jobs:
             --format=table
             --output=osv-results.txt
 
-      # Runs even when the scan step failed, so the findings are readable in the
-      # run's Summary tab rather than only in the step log.
+      # Runs even when the scan step failed, so the report is readable in the
+      # run's Summary tab rather than only in the step log. `always()` now
+      # covers the scanner-error case specifically: findings do not fail the
+      # step above any more, so the only way to get here after a failure is a
+      # scan that did not complete — and an empty report then means "nothing
+      # was scanned", not "nothing was found", which is what the exit code
+      # printed by the shared action's own summary block says.
       - name: Publish OSV results to the job summary
         if: always()
         run: |
@@ -151,14 +198,65 @@ jobs:
               echo 'No known vulnerabilities found in the scanned lockfiles.'
             fi
             echo
-            # No backticks in these two lines: shellcheck reads a backtick pair
+            # No backticks in these lines: shellcheck reads a backtick pair
             # inside a single-quoted string as an unexpanded command
             # substitution (SC2016) and actionlint runs shellcheck over every
             # `run:` block, so prose punctuation fails a required context.
-            echo 'Scanned by a Docker action on a mutable image tag: the SHA pin covers its action.yml,'
-            echo 'not the scanner image. See the comment at the top of this job and the residual risks'
-            echo 'in SECURITY.md.'
+            echo 'Scanned by the shared osv-scan action, which runs a digest-pinned scanner image, so'
+            echo 'the SHA pin on that action covers the scanner itself and not only its metadata. The'
+            echo 'suppressions filtering this report are the per-task osv-scanner.toml files; the'
+            echo 'reasoning for each is in the residual risks in SECURITY.md.'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Findings open a ticket instead of only reddening Monday. Gated on
+      # `findings`, not on the step's outcome: a scanner ERROR fails the step
+      # above and must not file a vulnerability issue about a scan that never
+      # ran.
+      - name: Create issue on new vulnerabilities
+        if: steps.osv.outputs.findings == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            // Comment on the existing tracking issue instead of filing a new
+            // one each Monday -- an unremediated finding otherwise buries any
+            // genuinely new one under duplicates. Matched on a stable title
+            // PREFIX (the full title also embeds today's date) plus both
+            // labels, so only a prior OSV-Scanner issue is ever matched.
+            const titlePrefix = 'OSV-Scanner: vulnerabilities found';
+            const title = `${titlePrefix} — ${new Date().toISOString().slice(0,10)}`;
+            const body = [
+              '## OSV-Scanner Vulnerability Report',
+              '',
+              `**Workflow run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              '',
+              'OSV-Scanner found known vulnerabilities in npm dependencies. Please review the run summary (or the workflow logs) and update affected packages.',
+            ].join('\n');
+
+            const openIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security,dependencies',
+              per_page: 100,
+            });
+            const existing = openIssues.data.find((issue) => issue.title.startsWith(titlePrefix));
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `Still failing as of ${new Date().toISOString().slice(0,10)}:\n\n${body}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['security', 'dependencies'],
+              });
+            }
 
   # ── Cross-repository shared-module parity ─────────────────────────────────
   # The two ServiceNow tasks' sanitizer/URI-guard modules (html-sanitizer.ts,
@@ -181,17 +279,20 @@ jobs:
   # the REAL comparison needs azure-pipelines-terraform's tree, which only this
   # scheduled job checks out.
   #
-  # NOT wired into an issue-on-failure job, unlike the sibling extensions'
-  # weekly-security.yml. This file's own header, above, explains why one was
-  # not ported here at all: issue-filing needs `security`/`dependencies`
-  # labels this repository did not carry when that decision was made. Adding
-  # one JUST for this job would notify differently than its two neighbours
-  # (`ci`, `osv-scan`) in the same file for no reason specific to this check --
-  # revisit all three together if a shared failure-issue job is ever adopted
-  # here. Until then, a divergence fails this job, which is already this
-  # workflow's documented notification for a scheduled run (see the "TWO JOBS"
-  # note at the top of this file): the same way `ci` and `osv-scan` notify
-  # today.
+  # STILL NOT wired into an issue-on-failure job, and as of 2026-09-09 that is
+  # a narrower statement than it used to be. The original reason was that
+  # issue-filing needed `security`/`dependencies` labels this repository did
+  # not carry; it carries both now, and `osv-scan` above files against them.
+  # What separates that job from this one is not the labels, it is the signal:
+  # the shared osv-scan action distinguishes "found something" from "the
+  # scanner broke", so a finding there is a well-formed thing to open a ticket
+  # about. A parity divergence here has no such split -- the job either
+  # compares the two trees and disagrees, or fails to check out the upstream
+  # tree at all, and both arrive as the same red. Filing on that would file on
+  # a checkout outage as readily as on a real divergence. So a divergence
+  # still fails this job, which is this workflow's documented notification for
+  # a scheduled run (see the header at the top of this file), the same way `ci`
+  # notifies today. Revisit if this check ever grows a signal worth filing on.
   cross-repo-parity:
     name: Cross-repo shared-module parity
     runs-on: ubuntu-latest
