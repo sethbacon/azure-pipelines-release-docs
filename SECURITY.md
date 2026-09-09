@@ -236,6 +236,20 @@ Recorded here as they are accepted, with the reasoning and the decision date.
   #58 asked for the family's layer rather than a divergent one. What bounds it meanwhile: the job is
   scheduled rather than merge-blocking, holds no stored credential, runs on `contents: read`, and
   reads a tree with no production dependencies.
+- **Cross-repository shared-module parity is checked weekly, not on every commit** (2026-09-08,
+  `sethbacon/azure-pipelines-terraform#1112` finding 1). `Markdown2Html`'s `html-sanitizer.ts` and
+  `uri-scheme-guard.ts` are PROVENANCE copies of files that still live in `azure-pipelines-terraform`
+  (deprecated there, `sethbacon/azure-pipelines-terraform#1046`); until now the two copies were held in
+  sync only by the fact that every fix to either task was applied to both repositories by hand, because
+  `scripts/check-shared-modules.js`'s byte-identity FAMILIES check cannot see across a repository
+  boundary. `scripts/check-cross-repo-parity.js` now does, comparing each copy's body against a fresh
+  checkout of that repository's `main`, and the `cross-repo-parity` job in
+  `.github/workflows/weekly-security.yml` is where that checkout happens. `scripts/test-check-cross-repo-parity.js`
+  self-tests the comparison logic itself on every pull request, in `ci.yml`, since the real comparison's
+  upstream checkout only exists in the scheduled job. Accepted for the same reason `dependency-scan`'s
+  weekly cadence is above: scheduled rather than merge-blocking, and it holds no stored credential — a
+  divergence introduced the day after a Monday run is caught up to six days later rather than
+  immediately.
 - **The redacted replay report is still published from a public repository** (2026-08-19, #24).
   `security-orchestration`'s `remediation/replay/redact-replay-report.js` strips every site list from both the artifact and the job log
   before either is published, leaving the per-signature evidence (which repositories it ran in, what

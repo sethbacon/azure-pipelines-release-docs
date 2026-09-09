@@ -20,7 +20,7 @@
   "minimumAgentVersion": "3.232.1",
   "dependencies": {
     "@4cloudguru/pipeline-task-ado": "^0.11.0",
-    "@4cloudguru/pipeline-task-core": "^0.9.1",
+    "@4cloudguru/pipeline-task-core": "^0.9.3",
     "azure-pipelines-task-lib": "^5.279.0",
     "cheerio": "^1.2.0",
     "sanitize-html": "^2.17.7",

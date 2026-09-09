@@ -119,6 +119,13 @@ jobs:
         run: node scripts/check-proxy-parity.js
       - name: Shared-module parity (byte-identity across both tasks)
         run: node scripts/check-shared-modules.js
+      # The real cross-repo comparison needs a checkout of azure-pipelines-
+      # terraform, which only the scheduled `cross-repo-parity` job in
+      # weekly-security.yml brings in. What runs here is the comparison
+      # LOGIC's self-test, against a synthetic fixture pair, so it is proved
+      # on every pull request rather than only when Monday's schedule fires.
+      - name: Self-test check-cross-repo-parity.js
+        run: node scripts/test-check-cross-repo-parity.js
 
   build:
     name: Build and Test (${{ matrix.os }})
@@ -243,6 +250,8 @@ jobs:
       # No install step: the script uses node builtins and `git check-ignore`
       # only, so it runs before and independently of any dependency tree.
       - run: node scripts/check-docs-claims.js
+      - name: Self-test check-docs-claims.js
+        run: node scripts/test-check-docs-claims.js
       # SECURITY.md's documented OIDC subject (owner/repo/environment) vs the
       # release.yml job that actually requests the token and the extension
       # manifest's declared repository -- see the script header.
