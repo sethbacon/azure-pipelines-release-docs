@@ -10,6 +10,13 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.5](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.4...v1.1.5) (2026-09-09)
+
+
+### Documentation
+
+* **shared-modules:** the cross-repo byte diff exists now, say so ([#195](https://github.com/sethbacon/azure-pipelines-release-docs/issues/195)) ([4a4f421](https://github.com/sethbacon/azure-pipelines-release-docs/commit/4a4f421417f963f5c2d6aa6a22744b4a05660956))
+
 ## [1.1.4](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.3...v1.1.4) (2026-09-09)
 
 
