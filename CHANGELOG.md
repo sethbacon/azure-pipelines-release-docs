@@ -10,6 +10,13 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.4](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.3...v1.1.4) (2026-09-09)
+
+
+### Dependencies
+
+* pin js-yaml to the patched 4.3.2 through a root override ([#192](https://github.com/sethbacon/azure-pipelines-release-docs/issues/192)) ([5b10c96](https://github.com/sethbacon/azure-pipelines-release-docs/commit/5b10c967c01ef16a5d88bf1dc039dd176f967b08))
+
 ## [1.1.3](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.2...v1.1.3) (2026-09-08)
 
 
