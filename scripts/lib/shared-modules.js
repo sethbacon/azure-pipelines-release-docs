@@ -66,12 +66,31 @@ const FAMILIES = [
 
 // Both modules above arrived with the tasks when they migrated from
 // azure-pipelines-terraform, which still carries its own (deprecated, #1046)
-// copies of these two tasks. A cross-repo byte diff isn't available in CI, so
-// what's checkable is that each copy still SAYS where it came from and
-// whether it's still in sync, via the @shared-module header
-// scripts/check-shared-modules.js scans for. Registering the CANONICAL
-// (Markdown2Html) dir of each file is enough -- the within-repo FAMILIES
-// entries above already keep PublishKbArticle's copy byte-identical to it.
+// copies of these two tasks. Registering the CANONICAL (Markdown2Html) dir of
+// each file is enough -- the within-repo FAMILIES entries above already keep
+// PublishKbArticle's copy byte-identical to it.
+//
+// This list is read by TWO checks that see different things, and the second one
+// is newer than this comment used to admit:
+//
+//   1. scripts/check-shared-modules.js, in this repository, can only verify
+//      that each copy still SAYS where it came from and whether it claims to be
+//      in sync, via the @shared-module header. It cannot open the upstream file.
+//
+//   2. the `cross-repo-copy-parity` replay signature, in security-orchestration,
+//      DOES diff the bodies below each side's leading comment, across every
+//      ado-extension repository at once. It runs here on every pull request and
+//      on main via .github/workflows/signature-replay.yml.
+//
+// So a real cross-repo byte diff now exists, which is what the maintenance-
+// surface finding of azure-pipelines-terraform#1112 asked for. Verified by
+// mutation: dropping 'action' from URI_BEARING_ATTRIBUTES in this repository's
+// copy alone takes that signature from zero sites to one.
+//
+// The consequence for anyone editing these two files: a fix applied here and
+// not upstream (or the reverse) now fails a gate rather than drifting quietly,
+// so apply it to both copies in the same change. A @shared-module-status of
+// IN-SYNC is a claim the signature checks, not a claim it trusts.
 const UPSTREAM = 'azure-pipelines-terraform';
 
 const PROVENANCE = [
