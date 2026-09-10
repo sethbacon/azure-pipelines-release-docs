@@ -168,7 +168,7 @@ jobs:
       # about the tree.
       - name: Run OSV-Scanner
         id: osv
-        uses: 4cloudguru/shared-workflows/.github/actions/osv-scan@3aae0966a70daa50bcfe741ef07e20e86c814af4 # v1.20.2
+        uses: 4cloudguru/shared-workflows/.github/actions/osv-scan@2c099c719d1ec5c0e77c578c701b7119cef6ac09 # v1.23.0
         with:
           scan-args: |-
             --recursive
