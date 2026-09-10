@@ -112,7 +112,7 @@ jobs:
       # shared-workflows' CI, beside the implementation it protects, which is why
       # the `Self-test check-shared-module-pins.js` step that stood here is gone.
       - name: Shared-module pins in lockstep (#1108 class signature)
-        uses: 4cloudguru/shared-workflows/.github/actions/check-shared-module-pins@2c099c719d1ec5c0e77c578c701b7119cef6ac09 # v1.23.0
+        uses: 4cloudguru/shared-workflows/.github/actions/check-shared-module-pins@6cc136d063217a077fc5183595adf26b21626a82 # v1.26.0
       # check-proxy-parity has been wrong twice -- once reporting no call sites
       # for a task that makes them, once attributing a locally defined function
       # to a package by name alone. Both changed the inventory silently, which
@@ -220,7 +220,7 @@ jobs:
   # extensions kept their own.
   workflow-security:
     name: Workflow Security
-    uses: 4cloudguru/shared-workflows/.github/workflows/workflow-security.yml@2c099c719d1ec5c0e77c578c701b7119cef6ac09 # v1.23.0
+    uses: 4cloudguru/shared-workflows/.github/workflows/workflow-security.yml@6cc136d063217a077fc5183595adf26b21626a82 # v1.26.0
 
   # The recording half is a SEPARATE workflow because a job requesting
   # security-events: write is validated when the run is created, before `if:` is
@@ -232,7 +232,7 @@ jobs:
     permissions:
       contents: read
       security-events: write
-    uses: 4cloudguru/shared-workflows/.github/workflows/workflow-security-record.yml@2c099c719d1ec5c0e77c578c701b7119cef6ac09 # v1.23.0
+    uses: 4cloudguru/shared-workflows/.github/workflows/workflow-security-record.yml@6cc136d063217a077fc5183595adf26b21626a82 # v1.26.0
 
   docs-claims:
     name: Check Documented Claims
@@ -263,7 +263,7 @@ jobs:
       # implementation it protects, which is why the `Self-test
       # check-docs-claims.js` step that stood here is gone.
       - name: Documented claims match what this repository implements
-        uses: 4cloudguru/shared-workflows/.github/actions/check-docs-claims@2c099c719d1ec5c0e77c578c701b7119cef6ac09 # v1.23.0
+        uses: 4cloudguru/shared-workflows/.github/actions/check-docs-claims@6cc136d063217a077fc5183595adf26b21626a82 # v1.26.0
       # SECURITY.md's documented OIDC subject (owner/repo/environment) vs the
       # release.yml job that actually requests the token and the extension
       # manifest's declared repository -- see the script header.
