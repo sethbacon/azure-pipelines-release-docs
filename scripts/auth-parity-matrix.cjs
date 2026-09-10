@@ -34,6 +34,13 @@
  *   competing-credential-env  a branch that injects credentials must first clear
  *                             the env vars of the schemes it is NOT using, or an
  *                             ambient/passthrough value out-ranks it (#187).
+ *   credential-delivery-channel
+ *                             a branch that delivers a secret as a `PKR_VAR_`
+ *                             must also fail closed when the template never
+ *                             declares that variable -- packer drops an
+ *                             undeclared `PKR_VAR_` silently, so the credential
+ *                             never arrives and the build authenticates as the
+ *                             agent's ambient identity instead (#332).
  *   roleSessionName           a federated session name must be derived from job
  *                             context, not a fixed constant (#197).
  *   serviceConnection         an empty service connection must fail closed, never
@@ -47,6 +54,55 @@
  * A cell is EXEMPT only when the code carries a machine-readable
  * `@credential-exempt: <reason>` marker in (or immediately above) the enclosing
  * branch. Exemptions are thus code-verified and enumerated, never implicit.
+ *
+ * PER-REPO DATA PLANE -- SPECIFIED HERE, DELIBERATELY NOT IMPLEMENTED.
+ *
+ * This gate carries no data file and reads none. It was measured before that
+ * was decided: the only table that could plausibly differ per repository,
+ * `FAILCLOSED_CREDENTIAL_ENV`, is already the UNION of both extensions'
+ * vocabularies, and running the union against each repo's own narrow table
+ * changes nothing in either direction (21 failclosed cells on packer, 27 on
+ * terraform, identical sets both ways -- the other extension's names
+ * manufactured no cell). `ACCESSORS`, `GUARD_HELPERS`, `SECRET_KEY_RE`,
+ * `VERIFIERS`, `SIGNATURE_TOGGLE` and `FAIL_VERDICTS` are identical in every
+ * copy. There is nothing left to externalise, and a data file that exists
+ * without differing is one more thing to drift.
+ *
+ * The contract is written down anyway, because the day a gate DOES need it the
+ * shape should already be settled rather than invented under pressure:
+ *
+ *   <root>/.security-gates/auth-parity-matrix.json
+ *   {
+ *     "credentialEnv":  ["PKR_VAR_new_provider_secret"],
+ *     "deliveryGuards": ["assertTemplateDeclaresVariable"]
+ *   }
+ *
+ *   - Resolved from ROOT (argv), NEVER from `__dirname`. That is not a style
+ *     preference: lib/package-delegation.js records the fabricated sites a
+ *     `__dirname` boundary produced the last time a gate was resolved from
+ *     outside the tree it analyses.
+ *   - Values are UNIONED into the tables below, never substituted. The two keys
+ *     union in OPPOSITE directions, and that asymmetry is the whole safety
+ *     argument:
+ *       `credentialEnv` STRENGTHENS -- a name absent from a repo's code is never
+ *         matched, so a union can only ADD cells. Safe for the analysed repo to
+ *         write.
+ *       `deliveryGuards` WEAKENS -- a guard name absent from a repo's code
+ *         leaves its cell UNGUARDED, so a union can only turn UNGUARDED into
+ *         GUARDED. Measured second-order damage: an over-broad entry also flips
+ *         EXEMPT cells to GUARDED, which erases the `@credential-exempt` markers
+ *         from the adapter's enumerated exemption note -- a weakening lever does
+ *         not merely hide a finding, it deletes the record that an exemption was
+ *         ever claimed. So it must NOT be repo-writable.
+ *   - Hence the placement when this lands: `remediation/gates/data/<gate>.json`
+ *     keyed by repo name, central and beside the logic. The root-relative path
+ *     above is the declared upgrade path for the day a gate runs from a
+ *     shared-workflows composite in an extension's own CI, with no access to
+ *     security-orchestration. Same JSON either way.
+ *   - ABSENT file == the defaults below, byte-for-byte. A file that EXISTS and
+ *     cannot be parsed is exit 2, never a silent default: both replay adapters
+ *     die() on any exit other than 0/1, so a typo must surface as could-not-run
+ *     rather than as a clean repository.
  *
  * Tooling note: `rg` and `ast-grep` do not exist in this project's
  * non-interactive shell (exit 127), so this signature is dependency-free node.
@@ -287,6 +343,68 @@ const GUARD_HELPERS = [
 /** Fields whose VALUE is opaque: presence is the only checkable property. */
 const SECRET_KEY_RE = /(password|secret|privatekey|key$|accesstoken|token|jwt)/i;
 
+/**
+ * Environment variable NAMES a handler sets that carry a credential or an
+ * identity selector for provider/backend authentication (#1029 finding 4
+ * reopen). `EnvironmentVariableHelper.setEnvironmentVariable()` grew a
+ * `required` fourth parameter that throws on an empty value instead of
+ * degrading to a warning, specifically so the fail-closed guarantee does not
+ * rest on every caller remembering (or keeping) an upstream guard -- but the
+ * flag is opt-in, and the 2026-09-05 blind re-audit found that none of the
+ * ~74 credential-bearing call sites across both extensions passed it. Every
+ * `setEnvironmentVariable("<name>", ...)` call for one of these names must
+ * pass a literal `true` as its fourth argument, else it is UNGUARDED.
+ *
+ * This is the CANONICAL copy (remediation/gates/auth-parity-matrix.cjs),
+ * resolved by gatelib for every repo the provider-auth-failclosed adapter
+ * runs against -- so the set below is the UNION of azure-pipelines-terraform's
+ * ARM_ and TF_VAR_ and GOOGLE_ and OCI_CLI_ names and azure-pipelines-packer's
+ * PKR_VAR_ and GOOGLE_APPLICATION_CREDENTIALS and PACKER_GITHUB_API_TOKEN
+ * names: the two extensions authenticate to the same providers under
+ * different SDK-mandated variable names (azurerm's PKR_VAR_arm_client_id has
+ * no relation to ARM_CLIENT_ID beyond meaning the same credential), and this
+ * one script answers for both repos' own scripts/auth-parity-matrix.cjs
+ * copies as well as any repo carrying neither (a name absent from a repo's
+ * code is simply never matched -- adding a name from the OTHER extension's
+ * vocabulary can never manufacture a false cell).
+ *
+ * Deliberately EXCLUDED -- not a credential, so not in this set:
+ *   - ARM_SUBSCRIPTION_ID / PKR_VAR_arm_subscription_id: names the TARGET
+ *     subscription/resource scope, not a credential; already only set inside
+ *     `if (subscriptionId)` after assertIdentityValue.
+ *   - ARM_USE_CLI / ARM_USE_MSI / ARM_USE_OIDC: fixed literal flags
+ *     ("true"/"false"), never operator/connection input.
+ *   - AWS_REGION / TF_VAR_region / PKR_VAR_oci_region / GOOGLE_PROJECT:
+ *     region/project identifiers, not credentials.
+ *   - AWS_ROLE_SESSION_NAME: a per-run CloudTrail-attribution string (#197's
+ *     own class), not a credential.
+ *   - TF_CLOUD_ORGANIZATION / TF_WORKSPACE: non-secret HCP Terraform config,
+ *     each already guarded by its own `if (x && x.trim())`.
+ *   - OCI_CLI_PROFILE / OCI_CLI_AUTH / PKR_VAR_oci_access_cfg_file_account /
+ *     PKR_VAR_vsphere_insecure_connection: fixed literal constants/flags
+ *     ("DEFAULT" / "security_token" / "true"), never operator or connection
+ *     input.
+ */
+const FAILCLOSED_CREDENTIAL_ENV = new Set([
+    // azure-pipelines-terraform
+    'ARM_CLIENT_ID', 'ARM_CLIENT_SECRET', 'ARM_TENANT_ID', 'ARM_OIDC_TOKEN',
+    'ARM_OIDC_REQUEST_TOKEN', 'ARM_OIDC_REQUEST_URL',
+    'ARM_ADO_PIPELINE_SERVICE_CONNECTION_ID', 'ARM_OIDC_AZURE_SERVICE_CONNECTION_ID',
+    'GOOGLE_CREDENTIALS', 'GOOGLE_BACKEND_CREDENTIALS',
+    'OCI_CLI_CONFIG_FILE',
+    'TF_VAR_tenancy_ocid', 'TF_VAR_user_ocid', 'TF_VAR_fingerprint', 'TF_VAR_private_key_path',
+    'TF_TOKEN_app_terraform_io',
+    // azure-pipelines-packer
+    'PKR_VAR_arm_client_id', 'PKR_VAR_arm_client_secret', 'PKR_VAR_arm_client_jwt', 'PKR_VAR_arm_tenant_id',
+    'GOOGLE_APPLICATION_CREDENTIALS',
+    'PKR_VAR_oci_access_cfg_file', 'PKR_VAR_oci_tenancy_ocid', 'PKR_VAR_oci_user_ocid',
+    'PKR_VAR_oci_fingerprint', 'PKR_VAR_oci_key_file',
+    'PKR_VAR_vsphere_server', 'PKR_VAR_vsphere_user', 'PKR_VAR_vsphere_password',
+    'PACKER_GITHUB_API_TOKEN',
+    // shared by both extensions
+    'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_ROLE_ARN', 'AWS_WEB_IDENTITY_TOKEN_FILE',
+]);
+
 function analyzeHandler(file, root) {
     const raw = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
     const code = stripComments(raw);
@@ -311,11 +429,27 @@ function analyzeHandler(file, root) {
         const hit = markers.find((m) => m.line >= r.lo - 14 && m.line <= r.hi);
         return hit ? hit.reason : null;
     };
+    // A marker anywhere in [region.lo, region.hi] -- no lookback. exemptionFor()
+    // deliberately reaches 14 lines ABOVE a region so a marker can sit above the
+    // read it describes, but that leaks across adjacent `case` arms when one
+    // branch is short: a marker just inside a preceding branch can fall within
+    // the next branch's lookback window and silently EXEMPT a genuinely
+    // unguarded cell in that sibling branch (caught by mutation testing the
+    // failclosed-set cells below on the packer copy of this script -- the
+    // ManagedServiceIdentity marker exempted a mutated WorkloadIdentityFederation
+    // cell). Cell kinds whose exemption must not cross a branch boundary pass
+    // strictExempt.
+    const strictExemptionFor = (line) => {
+        const r = regionFor(line);
+        const hit = markers.find((m) => m.line >= r.lo && m.line <= r.hi);
+        return hit ? hit.reason : null;
+    };
 
-    const add = (cellName, verdict, detail, line, branchOverride) => {
+    const add = (cellName, verdict, detail, line, branchOverride, strictExempt) => {
         const sc = scopes[line] || { method: '<top>', branch: '<top>' };
         const branch = branchOverride || sc.branch;
-        const exempt = verdict === 'UNGUARDED' ? exemptionFor(line) : null;
+        const lookup = strictExempt ? strictExemptionFor : exemptionFor;
+        const exempt = verdict === 'UNGUARDED' ? lookup(line) : null;
         cells.push({
             file: rel, handler, branch, cell: cellName,
             site: `${handler}.${branch}.${cellName}`,
@@ -452,6 +586,49 @@ function analyzeHandler(file, root) {
         }
     }
 
+    // ---- 3b. DELIVERY cells: a credential injected as PKR_VAR_ must be
+    //          accompanied by something that fails closed when the template does
+    //          not declare it (#332).
+    //
+    //          Every other cell kind here asks whether a value was READ safely.
+    //          None of them asks whether it ARRIVES. Packer silently ignores a
+    //          PKR_VAR_ naming a variable the template never declared -- exit 0,
+    //          no diagnostic, not even on `validate` -- and for Azure a dropped
+    //          credential leaves packer-plugin-azure's UseMSI() true, so the build
+    //          authenticates as the agent VM's managed identity rather than
+    //          failing. The matrix reported 44/44 GUARDED throughout, because it
+    //          was blind to the delivery channel. That is the same shape as a green
+    //          class gate certifying a live high.
+    //
+    //          Two things satisfy this cell:
+    //            - assertTemplateDeclaresVariable(...) -- the `packer inspect`
+    //              pre-flight, which refuses when the declaration is absent; or
+    //            - providerVarArgs.push(...) -- delivery as `-var`, which packer
+    //              itself hard-errors on for an undeclared variable.
+    //
+    //          Scoped to SECRET-shaped PKR_VAR_ names on purpose: a dropped
+    //          non-secret selector (subscription id, region) is a wrong-target or
+    //          fail-closed outcome, not a wrong-identity one, and several are
+    //          legitimately optional.
+    if (!isBase) {
+        const SECRET_VAR_RE = /setEnvironmentVariable\s*\(\s*["'](PKR_VAR_[A-Za-z0-9_]*(?:secret|jwt|password|token|privatekey|key_file)[A-Za-z0-9_]*)["']/gi;
+        for (const r of regions) {
+            if (r.branch === '<top>') continue;
+            const region = codeLines.slice(r.lo - 1, r.hi).join('\n');
+            SECRET_VAR_RE.lastIndex = 0;
+            const delivered = [];
+            let m;
+            while ((m = SECRET_VAR_RE.exec(region)) !== null) delivered.push(m[1]);
+            if (!delivered.length) continue;
+            const ok = /assertTemplateDeclaresVariable\s*\(/.test(region)
+                || /providerVarArgs\.push\s*\(/.test(region);
+            add('credential-delivery-channel', ok ? 'GUARDED' : 'UNGUARDED',
+                ok ? `${delivered.join(', ')} delivered with a declaration pre-flight or via -var`
+                   : `${delivered.join(', ')} delivered as PKR_VAR_ with nothing failing closed when the template omits the declaration`,
+                r.lo, r.branch, /* strictExempt */ true);
+        }
+    }
+
     // ---- 4. SESSION cells: a constant role-session-name collapses CloudTrail
     //         attribution across every federated build (#197).
     {
@@ -501,6 +678,29 @@ function analyzeHandler(file, root) {
                 ok ? 'empty service connection throws before the OIDC request'
                    : 'empty service connection reaches the OIDC/credential request unchecked',
                 line);
+        }
+    }
+
+    // ---- 6a. FAILCLOSED-SET cells: a credential-bearing setEnvironmentVariable()
+    //          call must pass required:true (4th arg, literal `true`) so the
+    //          helper itself throws on an empty value instead of degrading to a
+    //          warning -- the fix for #1029's reopen ("the fourth parameter
+    //          exists and no caller uses it").
+    {
+        const re = /\bsetEnvironmentVariable\s*\(/g;
+        let m;
+        while ((m = re.exec(code))) {
+            const argText = callArgs(code, m.index + m[0].length - 1);
+            if (argText === null) continue;
+            const args = splitArgs(argText);
+            const name = unquote(args[0] || '');
+            if (!FAILCLOSED_CREDENTIAL_ENV.has(name)) continue;
+            const line = lineOf(starts, m.index);
+            const required = (args[3] || '').trim() === 'true';
+            add(`failclosed:${name}`, required ? 'GUARDED' : 'UNGUARDED',
+                required ? 'passes required:true -- an empty value now throws'
+                         : `credential-bearing name '${name}' set without required:true -- an empty value degrades to a warning (#1029)`,
+                line, undefined, /* strictExempt */ true);
         }
     }
 
