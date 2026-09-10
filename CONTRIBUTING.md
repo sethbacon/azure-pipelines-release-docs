@@ -85,10 +85,16 @@ npm install                           # or Tasks/PublishKbArticle/PublishKbArtic
      agreement with release-please, and the `configs/` publish-identity rules
      (`scripts/check-versions.js`), plus package composition (`scripts/check-package-composition.js`)
      and release-readiness preconditions (`scripts/check-release-readiness.js`), each with its own
-     mutation self-test run in the same job. It also runs `4cloudguru/shared-workflows`'
-     `check-shared-module-pins` composite action, pinned to a full commit SHA, which holds every
-     task's resolved `@4cloudguru/pipeline-task-core` and `@4cloudguru/pipeline-task-ado` in lockstep;
-     that gate's own self-test runs in `shared-workflows`, beside the implementation.
+     mutation self-test run in the same job. It also runs five `4cloudguru/shared-workflows`
+     composite actions, all pinned to the same full commit SHA: `check-shared-module-pins`, which
+     holds every task's resolved `@4cloudguru/pipeline-task-core` and `@4cloudguru/pipeline-task-ado`
+     in lockstep, and the four ADO-extension class gates `check-enforced-disciplines`,
+     `check-proxy-parity`, `check-artifact-trust` and `auth-parity-matrix`. The last three declare a
+     measured floor (`min-sites`, `min-scanned`, `min-cells`) beside the `uses:` line, with the date
+     and the command that produced it, so a gate that stops seeing this repository fails instead of
+     reporting a green nothing. Those gates' own mutation self-tests run in `shared-workflows`, beside
+     the implementations they protect, which is why this repository carries no `scripts/test-check-*`
+     for them.
    - `Build and Test` — on Ubuntu and Windows: installs each task's dependencies, compiles, and runs
      `npm run test:all`, then re-runs the compiled entry point of every task under Node 20 (the
      `Node20_1` execution-handler fallback) to prove it still loads there.
@@ -117,7 +123,10 @@ npm install                           # or Tasks/PublishKbArticle/PublishKbArtic
    your working tree before pushing, check `shared-workflows` out beside this repository and invoke
    the gate directly — `node ../shared-workflows/.github/actions/check-docs-claims/check-docs-claims.js .`
    — there is no `npm run` alias, because an alias here would stand for a file this repository does
-   not carry.
+   not carry. The same sibling checkout runs the other five shared gates the same way; `README.md`
+   lists the exact commands. `npm test` here needs no such checkout — no test in this repository
+   spawns a class gate, unlike the two sibling extensions, where the task suites do and the sibling
+   checkout is therefore required to run them.
 
    `.github/workflows/pr-checks.yml` gates the PR as well: `PR title convention`, `Dependency review`
    (`fail-on-severity: high`), and the two release-parsing guards described above,
