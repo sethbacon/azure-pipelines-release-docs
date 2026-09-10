@@ -10,6 +10,13 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.6](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.5...v1.1.6) (2026-09-10)
+
+
+### Bug Fixes
+
+* **deps:** resolve OSV findings and file an issue instead of reddening the weekly scan ([#197](https://github.com/sethbacon/azure-pipelines-release-docs/issues/197)) ([5e12964](https://github.com/sethbacon/azure-pipelines-release-docs/commit/5e12964806bcfc16290a217b42120e20514bddd8))
+
 ## [1.1.5](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.4...v1.1.5) (2026-09-09)
 
 
