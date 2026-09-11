@@ -88,9 +88,12 @@ jobs:
         run: node scripts/test-gates.js
       # The class signatures, run here as well as by security-orchestration's
       # replay, so this repository and the replay cannot answer differently about
-      # the same code. They arrived with the tasks and were wired into nothing:
-      # the replay skips this repo while its kind is `ado-extension-scaffold`, so
-      # until now they ran NOWHERE. Same four the sibling extensions run in CI.
+      # the same code. They arrived with the tasks and were wired into nothing,
+      # and the replay skipped this repository while its kind was
+      # `ado-extension-scaffold`; the kind has been `ado-extension` since
+      # sethbacon/security-orchestration#76, so the replay has run them here
+      # since then, and this job runs them on every pull request. Same four the
+      # sibling extensions run in CI.
       #
       # The line that stood here said check-artifact-trust and auth-parity-matrix
       # were "replay-only there too". That was FALSE: in azure-pipelines-packer and
