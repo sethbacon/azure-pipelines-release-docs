@@ -10,6 +10,18 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.7](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.6...v1.1.7) (2026-09-11)
+
+
+### Bug Fixes
+
+* **gates:** adopt the union egress gate, the strongest of the three copies ([#210](https://github.com/sethbacon/azure-pipelines-release-docs/issues/210)) ([bb86ba7](https://github.com/sethbacon/azure-pipelines-release-docs/commit/bb86ba7662c71e8f83cf3a5588d5d373803a9f5b))
+
+
+### Documentation
+
+* **ci:** say when the replay started running the class signatures here ([#206](https://github.com/sethbacon/azure-pipelines-release-docs/issues/206)) ([3891b46](https://github.com/sethbacon/azure-pipelines-release-docs/commit/3891b46474dcc7e2a3bceafd1b35c8c1f6dbd4a7))
+
 ## [1.1.6](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.5...v1.1.6) (2026-09-10)
 
 
