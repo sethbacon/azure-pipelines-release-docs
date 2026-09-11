@@ -224,22 +224,46 @@ The Marketplace publish itself (retries, token kept off argv) is
 with azure-pipelines-terraform and azure-pipelines-packer; its self-test lives
 there, not in this repo.
 
-Two gates now come from that repository the same way, as composite actions pinned to a full commit
-SHA in `.github/workflows/ci.yml`: `check-docs-claims` (run by `Check Documented Claims`) and
-`check-shared-module-pins` (run by `Check Version Consistency`). Neither has an `npm run` alias here,
+Six gates now come from that repository the same way, as composite actions pinned to a full commit
+SHA in `.github/workflows/ci.yml`: `check-docs-claims` (run by `Check Documented Claims`), and
+`check-shared-module-pins`, `check-enforced-disciplines`, `check-proxy-parity`, `check-artifact-trust`
+and `auth-parity-matrix` (all run by `Check Version Consistency`). The last four arrived together:
+`check-enforced-disciplines` and `check-proxy-parity` moved out of `scripts/`, where this repository
+kept hand-copies of them, and `check-artifact-trust` and `auth-parity-matrix` are wired into this
+repository's CI for the first time in the same change. None has an `npm run` alias here,
 deliberately — every other `check:*` script runs a file this repository carries, and an alias standing
 for something outside the tree would fail for anyone without a sibling checkout while making a shared
-gate look locally owned. To run either against this working tree, check `shared-workflows` out beside
-this repository (the layout the estate's signature replay uses) and invoke it directly:
+gate look locally owned. To run any of them against this working tree, check `shared-workflows` out
+beside this repository (the layout the estate's signature replay uses) and invoke it directly:
 
 ```bash
 node ../shared-workflows/.github/actions/check-docs-claims/check-docs-claims.js .
 node ../shared-workflows/.github/actions/check-shared-module-pins/check-shared-module-pins.js .
+node ../shared-workflows/.github/actions/check-enforced-disciplines/check-enforced-disciplines.js .
+node ../shared-workflows/.github/actions/check-proxy-parity/check-proxy-parity.js .
+node ../shared-workflows/.github/actions/check-artifact-trust/check-artifact-trust.js .
+node ../shared-workflows/.github/actions/auth-parity-matrix/auth-parity-matrix.cjs .
 ```
 
-Both take the repository root positionally and accept `--json`; both are dependency-free, so no
-install is needed in that checkout. Their mutation self-tests live there too, beside the
-implementations, which is why this repository no longer carries a `test-check-*` for either.
+Each takes the repository root positionally and all but `check-enforced-disciplines` accept `--json`;
+that one has no machine mode, because its human report is what security-orchestration's replay parses,
+and its composite refuses a `json: true` input rather than letting a caller assume otherwise. All are
+dependency-free, so no install is needed in that checkout. Their mutation self-tests live there too,
+beside the implementations, which is why this repository no longer carries a `test-check-*` for any of
+them.
+
+The three that enumerate declare a measured floor in `.github/workflows/ci.yml` — `min-sites` for
+`check-proxy-parity`, `min-scanned` plus `min-sites`/`min-cells` for the other two — each with the
+date and the command that produced it recorded beside the number. `check-artifact-trust` and
+`auth-parity-matrix` find nothing here and are right to: no task downloads a tool binary and no task
+authenticates to a cloud provider. The denominator is what makes that a measurement rather than a
+vacuous green, which is why a `min-scanned` of zero is refused.
+
+`scripts/lib/task-dirs.js` did not move with `check-enforced-disciplines`: six scripts that are not
+gates import it, and `scripts/copy-build.js` uses `discoverTaskDirs` to decide what ships in the
+`.vsix`. Nothing in this repository would compare it once the gate that owned it left, so the
+`check-enforced-disciplines` composite compares it byte-for-byte against its own copy at the pinned
+SHA.
 
 `check:versions`, `check:composition`, `test:composition` and `test:gates` all run in the required
 `Check Version Consistency` CI job; `check:audit-scope` runs in `Dependency audit`, ahead of the

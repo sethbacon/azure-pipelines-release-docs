@@ -90,8 +90,17 @@ jobs:
       # replay, so this repository and the replay cannot answer differently about
       # the same code. They arrived with the tasks and were wired into nothing:
       # the replay skips this repo while its kind is `ado-extension-scaffold`, so
-      # until now they ran NOWHERE. Same four the sibling extensions run in CI;
-      # check-artifact-trust and auth-parity-matrix are replay-only there too.
+      # until now they ran NOWHERE. Same four the sibling extensions run in CI.
+      #
+      # The line that stood here said check-artifact-trust and auth-parity-matrix
+      # were "replay-only there too". That was FALSE: in azure-pipelines-packer and
+      # azure-pipelines-terraform both are spawned under `npm test` by task L0
+      # suites, which assert their whole enumerated set. Here they are wired for
+      # the first time, below. They enumerate nothing in this repository and are
+      # RIGHT to -- there is no artefact download and no credential handler to find.
+      # What makes that answer honest rather than vacuous is the `min-scanned`
+      # denominator each one now declares: 34 source files read, 0 found. Zero with
+      # no denominator cannot tell "looked and found none" from "looked nowhere".
       - name: Egress authorization (SSRF class signature)
         run: node scripts/check-egress-authorization.js
       # Fetches the actual pinned 4cloudguru/shared-workflows commit that
@@ -101,10 +110,23 @@ jobs:
       # found by hand.
       - name: Shared-workflow egress-policy claims match the pinned commit
         run: node scripts/check-shared-workflow-egress.js
+      # The remaining three ADO-extension class gates follow check-shared-module-pins
+      # and check-docs-claims into 4cloudguru/shared-workflows: same composite shape,
+      # same pin, and a composite is a STEP inside this job, so "Check Version
+      # Consistency" keeps its name and the required context does not move. Their
+      # hand-copies under scripts/ are deleted by this change, and the two
+      # `Self-test ...` steps that stood beside them go with them -- each gate's
+      # mutation self-test now runs in shared-workflows' CI, beside the implementation
+      # it protects.
+      #
+      # `scripts/lib/task-dirs.js` stays behind: six non-gate scripts import it
+      # (check-versions.js, check-minor-bumps.js, check-package-composition.js,
+      # check-release-readiness.js, copy-build.js, for-each-task.js) and copy-build.js
+      # uses discoverTaskDirs to decide what ships in the .vsix. With the gate entry
+      # point gone nothing in this repository would compare it any more, so the
+      # check-enforced-disciplines composite `cmp`s it against its own copy at the pin.
       - name: Enforced disciplines (documented-but-unenforced class signature)
-        run: node scripts/check-enforced-disciplines.js
-      - name: Self-test check-enforced-disciplines.js
-        run: node scripts/test-check-enforced-disciplines.js
+        uses: 4cloudguru/shared-workflows/.github/actions/check-enforced-disciplines@6cc136d063217a077fc5183595adf26b21626a82 # v1.26.0
       # The gate itself now lives in 4cloudguru/shared-workflows as a composite
       # action, replacing the hand-copy that used to sit in scripts/. A composite
       # is a STEP inside this job, so "Check Version Consistency" keeps its name
@@ -116,11 +138,40 @@ jobs:
       # check-proxy-parity has been wrong twice -- once reporting no call sites
       # for a task that makes them, once attributing a locally defined function
       # to a package by name alone. Both changed the inventory silently, which
-      # is the one failure a coverage gate must not have.
-      - name: Self-test check-proxy-parity.js
-        run: node scripts/test-check-proxy-parity.js
+      # is the one failure a coverage gate must not have. The declared floor below
+      # is what catches that shape now that the self-test has moved upstream.
       - name: Outbound proxy parity (packer #196 class signature)
-        run: node scripts/check-proxy-parity.js
+        uses: 4cloudguru/shared-workflows/.github/actions/check-proxy-parity@6cc136d063217a077fc5183595adf26b21626a82 # v1.26.0
+        with:
+          # 1 site, measured 2026-09-10 on this branch with
+          # `node .github/actions/check-proxy-parity/check-proxy-parity.js <root> --json`
+          # from shared-workflows at this pin: PublishKbArticleV1's snRequest ->
+          # httpsRequest, PROXIED-BY-PACKAGE. This gate's --json carries no `scanned`
+          # denominator, so its floor is on the enumeration and the action refuses a
+          # floor below 1. Move the number in the same change that moves the count.
+          min-sites: 1
+      # New here. Both gates below enumerate zero in this repository, and the
+      # denominator is the whole point: `min-scanned` is refused below 1, so a
+      # green step proves the gate read this tree rather than an empty one.
+      - name: Artefact trust (packer #196 class signature)
+        uses: 4cloudguru/shared-workflows/.github/actions/check-artifact-trust@6cc136d063217a077fc5183595adf26b21626a82 # v1.26.0
+        with:
+          # 0 sites / 34 source files scanned, measured 2026-09-10 on this branch with
+          # `node .github/actions/check-artifact-trust/check-artifact-trust.js <root> --json`
+          # from shared-workflows at this pin. No task here downloads a tool binary,
+          # so there is no download to verify; the 34 says the gate looked.
+          min-scanned: 34
+          min-sites: 0
+      - name: Provider auth fails closed (credential parity matrix)
+        uses: 4cloudguru/shared-workflows/.github/actions/auth-parity-matrix@6cc136d063217a077fc5183595adf26b21626a82 # v1.26.0
+        with:
+          # 0 cells / 34 source files scanned / 0 handler files, measured 2026-09-10 on
+          # this branch with
+          # `node .github/actions/auth-parity-matrix/auth-parity-matrix.cjs <root> --json`
+          # from shared-workflows at this pin. No task here authenticates to a cloud
+          # provider, so the matrix has no cells; the 34 says the gate looked.
+          min-scanned: 34
+          min-cells: 0
       - name: Shared-module parity (byte-identity across both tasks)
         run: node scripts/check-shared-modules.js
       # The real cross-repo comparison needs a checkout of azure-pipelines-
