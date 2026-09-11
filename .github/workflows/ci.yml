@@ -104,8 +104,26 @@ jobs:
       # What makes that answer honest rather than vacuous is the `min-scanned`
       # denominator each one now declares: 34 source files read, 0 found. Zero with
       # no denominator cannot tell "looked and found none" from "looked nowhere".
+      # The seventh and last gate to move: the hand-copy that stood in
+      # `scripts/` is deleted by this change and the composite at the pin runs
+      # in its place. A composite is a STEP inside this job, so "Check Version
+      # Consistency" keeps its name and the required context does not move.
+      # This repository's copy was byte-identical to canonical when it was
+      # deleted (sha256 e1a8d4fec1c13d2ce2c1cbf418164c8402cbf60d1765f5662b0b8314538a575c),
+      # so the verdict here is unchanged. Its mutation self-test runs in
+      # shared-workflows' CI beside the implementation it protects.
       - name: Egress authorization (SSRF class signature)
-        run: node scripts/check-egress-authorization.js
+        uses: 4cloudguru/shared-workflows/.github/actions/check-egress-authorization@c52ee27a03d06eee94e13c7bb56385d4edfb94d4 # v1.28.0
+        with:
+          # 17 sites, measured 2026-09-11 on this branch with
+          # `node .github/actions/check-egress-authorization/check-egress-authorization.js <root> --json`
+          # from shared-workflows at this pin, counting `sites` (all 17
+          # EXEMPT-REVIEWED: 10 in PublishKbArticleV1's servicenow-client.ts, 3 in
+          # its attachments.ts, 1 in its auth.ts, 3 in ChangelogV1's release-pr.ts).
+          # This gate's --json carries no `scanned` denominator, so its floor is on
+          # the enumeration and the action refuses a floor below 1. Move the number
+          # in the same change that moves the count.
+          min-sites: 17
       # Fetches the actual pinned 4cloudguru/shared-workflows commit that
       # release-please/replay delegate to and fails if its real egress-policy
       # ever stops matching what this repo's comments/SECURITY.md claim (#23) --
@@ -129,7 +147,7 @@ jobs:
       # point gone nothing in this repository would compare it any more, so the
       # check-enforced-disciplines composite `cmp`s it against its own copy at the pin.
       - name: Enforced disciplines (documented-but-unenforced class signature)
-        uses: 4cloudguru/shared-workflows/.github/actions/check-enforced-disciplines@adb01429f88e459fcc045598317b5d6c09f95647 # v1.26.1
+        uses: 4cloudguru/shared-workflows/.github/actions/check-enforced-disciplines@c52ee27a03d06eee94e13c7bb56385d4edfb94d4 # v1.28.0
       # The gate itself now lives in 4cloudguru/shared-workflows as a composite
       # action, replacing the hand-copy that used to sit in scripts/. A composite
       # is a STEP inside this job, so "Check Version Consistency" keeps its name
@@ -137,14 +155,23 @@ jobs:
       # shared-workflows' CI, beside the implementation it protects, which is why
       # the `Self-test check-shared-module-pins.js` step that stood here is gone.
       - name: Shared-module pins in lockstep (#1108 class signature)
-        uses: 4cloudguru/shared-workflows/.github/actions/check-shared-module-pins@adb01429f88e459fcc045598317b5d6c09f95647 # v1.26.1
+        uses: 4cloudguru/shared-workflows/.github/actions/check-shared-module-pins@c52ee27a03d06eee94e13c7bb56385d4edfb94d4 # v1.28.0
+        with:
+          # 3 task manifests scanned -- ChangelogV1, Markdown2HtmlV1,
+          # PublishKbArticleV1 -- measured 2026-09-11 on this branch with
+          # `node .github/actions/check-shared-module-pins/check-shared-module-pins.js <root> --json`
+          # from shared-workflows at this pin, reading `scanned`. Required from
+          # v1.28.0 and refused below 1: a pin check that read no manifest
+          # enumerates no pin and passes. Move the number in the same change that
+          # adds or removes a task.
+          min-scanned: 3
       # check-proxy-parity has been wrong twice -- once reporting no call sites
       # for a task that makes them, once attributing a locally defined function
       # to a package by name alone. Both changed the inventory silently, which
       # is the one failure a coverage gate must not have. The declared floor below
       # is what catches that shape now that the self-test has moved upstream.
       - name: Outbound proxy parity (packer #196 class signature)
-        uses: 4cloudguru/shared-workflows/.github/actions/check-proxy-parity@adb01429f88e459fcc045598317b5d6c09f95647 # v1.26.1
+        uses: 4cloudguru/shared-workflows/.github/actions/check-proxy-parity@c52ee27a03d06eee94e13c7bb56385d4edfb94d4 # v1.28.0
         with:
           # 1 site, measured 2026-09-10 on this branch with
           # `node .github/actions/check-proxy-parity/check-proxy-parity.js <root> --json`
@@ -157,7 +184,7 @@ jobs:
       # denominator is the whole point: `min-scanned` is refused below 1, so a
       # green step proves the gate read this tree rather than an empty one.
       - name: Artefact trust (packer #196 class signature)
-        uses: 4cloudguru/shared-workflows/.github/actions/check-artifact-trust@adb01429f88e459fcc045598317b5d6c09f95647 # v1.26.1
+        uses: 4cloudguru/shared-workflows/.github/actions/check-artifact-trust@c52ee27a03d06eee94e13c7bb56385d4edfb94d4 # v1.28.0
         with:
           # 0 sites / 34 source files scanned, measured 2026-09-10 on this branch with
           # `node .github/actions/check-artifact-trust/check-artifact-trust.js <root> --json`
@@ -166,7 +193,7 @@ jobs:
           min-scanned: 34
           min-sites: 0
       - name: Provider auth fails closed (credential parity matrix)
-        uses: 4cloudguru/shared-workflows/.github/actions/auth-parity-matrix@adb01429f88e459fcc045598317b5d6c09f95647 # v1.26.1
+        uses: 4cloudguru/shared-workflows/.github/actions/auth-parity-matrix@c52ee27a03d06eee94e13c7bb56385d4edfb94d4 # v1.28.0
         with:
           # 0 cells / 34 source files scanned / 0 handler files, measured 2026-09-10 on
           # this branch with
@@ -274,7 +301,7 @@ jobs:
   # extensions kept their own.
   workflow-security:
     name: Workflow Security
-    uses: 4cloudguru/shared-workflows/.github/workflows/workflow-security.yml@adb01429f88e459fcc045598317b5d6c09f95647 # v1.26.1
+    uses: 4cloudguru/shared-workflows/.github/workflows/workflow-security.yml@c52ee27a03d06eee94e13c7bb56385d4edfb94d4 # v1.28.0
 
   # The recording half is a SEPARATE workflow because a job requesting
   # security-events: write is validated when the run is created, before `if:` is
@@ -286,7 +313,7 @@ jobs:
     permissions:
       contents: read
       security-events: write
-    uses: 4cloudguru/shared-workflows/.github/workflows/workflow-security-record.yml@adb01429f88e459fcc045598317b5d6c09f95647 # v1.26.1
+    uses: 4cloudguru/shared-workflows/.github/workflows/workflow-security-record.yml@c52ee27a03d06eee94e13c7bb56385d4edfb94d4 # v1.28.0
 
   docs-claims:
     name: Check Documented Claims
@@ -317,7 +344,17 @@ jobs:
       # implementation it protects, which is why the `Self-test
       # check-docs-claims.js` step that stood here is gone.
       - name: Documented claims match what this repository implements
-        uses: 4cloudguru/shared-workflows/.github/actions/check-docs-claims@adb01429f88e459fcc045598317b5d6c09f95647 # v1.26.1
+        uses: 4cloudguru/shared-workflows/.github/actions/check-docs-claims@c52ee27a03d06eee94e13c7bb56385d4edfb94d4 # v1.28.0
+        with:
+          # 78 claims, measured 2026-09-11 on this branch with
+          # `node .github/actions/check-docs-claims/check-docs-claims.js <root> --json`
+          # from shared-workflows at this pin, summing the `enumerated` counters:
+          # 6 controls + 6 ciJobs + 0 fileTables + 51 pathRefs + 1 claimDeps +
+          # 3 thirdPartyNotices + 11 workflows. Required from v1.28.0 and refused
+          # below 1 -- a documents-check that checked no document is not a pass.
+          # Measured in a git worktree, because the gate's git-ignore probe needs
+          # a repository. Move the number in the same change that moves the count.
+          min-claims: 78
       # SECURITY.md's documented OIDC subject (owner/repo/environment) vs the
       # release.yml job that actually requests the token and the extension
       # manifest's declared repository -- see the script header.

@@ -85,15 +85,16 @@ npm install                           # or Tasks/PublishKbArticle/PublishKbArtic
      agreement with release-please, and the `configs/` publish-identity rules
      (`scripts/check-versions.js`), plus package composition (`scripts/check-package-composition.js`)
      and release-readiness preconditions (`scripts/check-release-readiness.js`), each with its own
-     mutation self-test run in the same job. It also runs five `4cloudguru/shared-workflows`
+     mutation self-test run in the same job. It also runs six `4cloudguru/shared-workflows`
      composite actions, all pinned to the same full commit SHA: `check-shared-module-pins`, which
      holds every task's resolved `@4cloudguru/pipeline-task-core` and `@4cloudguru/pipeline-task-ado`
-     in lockstep, and the four ADO-extension class gates `check-enforced-disciplines`,
-     `check-proxy-parity`, `check-artifact-trust` and `auth-parity-matrix`. The last three declare a
-     measured floor (`min-sites`, `min-scanned`, `min-cells`) beside the `uses:` line, with the date
-     and the command that produced it, so a gate that stops seeing this repository fails instead of
-     reporting a green nothing. Those gates' own mutation self-tests run in `shared-workflows`, beside
-     the implementations they protect, which is why this repository carries no `scripts/test-check-*`
+     in lockstep, and the five ADO-extension class gates `check-enforced-disciplines`,
+     `check-proxy-parity`, `check-artifact-trust`, `auth-parity-matrix` and
+     `check-egress-authorization`. All but `check-enforced-disciplines` declare a measured floor
+     (`min-scanned`, `min-sites`, `min-cells`) beside the `uses:` line, with the date and the command
+     that produced it, so a gate that stops seeing this repository fails instead of reporting a green
+     nothing. Those gates' own mutation self-tests run in `shared-workflows`, beside the
+     implementations they protect, which is why this repository carries no `scripts/test-check-*`
      for them.
    - `Build and Test` — on Ubuntu and Windows: installs each task's dependencies, compiles, and runs
      `npm run test:all`, then re-runs the compiled entry point of every task under Node 20 (the
@@ -115,7 +116,8 @@ npm install                           # or Tasks/PublishKbArticle/PublishKbArtic
      exists both fail), every backticked `Tasks/`, `scripts/`, `docs/`, `configs/`, `images/` or
      `.github/` path referenced from `README.md`/`SECURITY.md`/`CONTRIBUTING.md`/`CLAUDE.md`/`overview.md`
      against the tree, and `SECURITY.md`'s supply-chain control ledger against what the workflows
-     actually run.
+     actually run. It too declares a measured floor beside its `uses:` line — `min-claims`, required
+     from v1.28.0 and refused below 1, because a documents-check that read no document is not a pass.
    <!-- ci-jobs:end -->
 
    This list is checked against `.github/workflows/ci.yml` by that shared `check-docs-claims` action,
