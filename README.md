@@ -259,6 +259,16 @@ date and the command that produced it recorded beside the number. `check-artifac
 authenticates to a cloud provider. The denominator is what makes that a measurement rather than a
 vacuous green, which is why a `min-scanned` of zero is refused.
 
+`scripts/lib/proxy-parity.data.json` is a file this repository owns rather than a piece of gate
+logic left behind. It declares the version of each shared `@4cloudguru` package that every task here
+has passed, and `check-proxy-parity` reads it from the tree it is analysing rather than from beside
+itself — which is what lets one upstream copy of the gate hold three repositories to three different
+package fleets. The floor enforced is the highest of three terms: the release a capability first
+shipped in, the estate-wide ratchet inside the gate, and this file. The file can therefore only raise
+this repository's bar, never lower it. Bump it in the same change that bumps the packages; if a
+task's range moves and this file does not, the gate's `staleFloors()` check fails naming both
+numbers.
+
 `scripts/lib/task-dirs.js` did not move with `check-enforced-disciplines`: six scripts that are not
 gates import it, and `scripts/copy-build.js` uses `discoverTaskDirs` to decide what ships in the
 `.vsix`. Nothing in this repository would compare it once the gate that owned it left, so the
