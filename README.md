@@ -175,7 +175,7 @@ action's source, not guessed from this repository's own workflow file.
 | --- | --- |
 | Workflow file | `.github/workflows/release-pr-guard.yml` |
 | Jobs that post it | `closing-keywords` (display name `Release PR closes only what it completes`) on every `pull_request` (`opened`, `edited`, `synchronize`, `reopened`); `link-regrade` (display name `Re-grade open release PRs against the live link graph`) on `schedule (*/5 * * * *)` and `workflow_dispatch` |
-| Action | `4cloudguru/shared-workflows/.github/actions/release-pr-closing-keywords@adb01429f88e459fcc045598317b5d6c09f95647` (v1.20.2) |
+| Action | `4cloudguru/shared-workflows/.github/actions/release-pr-closing-keywords@c52ee27a03d06eee94e13c7bb56385d4edfb94d4` (v1.28.0) |
 | How it posts | Neither job overrides the action's `status-context` input, so both inherit its default — literally `release-guard/link-regrade` in the action's `action.yml` — and post it as a **commit status** (`POST /repos/<repo>/statuses/<head-sha>` with an explicit `context=` field), not a check run. That is why it matches neither job's `name:`: a commit-status context is chosen by the caller at call time, independent of the job that calls it. The two jobs sharing one context is deliberate — it lets the scheduled re-grade overwrite the pull-request-time verdict on the same SHA. |
 | Token | this workflow's own `${{ secrets.GITHUB_TOKEN }}`, scoped `statuses: write` in both jobs' `permissions:` block — not a GitHub App |
 | Availability consequence | If `4cloudguru/shared-workflows` removes or breaks `release-pr-closing-keywords`, or this workflow file is removed or renamed, the context stops posting entirely and `main` blocks every pull request here — and, because the workflow is byte-identical, in `azure-pipelines-terraform` and `azure-pipelines-packer` too. |
@@ -224,13 +224,17 @@ The Marketplace publish itself (retries, token kept off argv) is
 with azure-pipelines-terraform and azure-pipelines-packer; its self-test lives
 there, not in this repo.
 
-Six gates now come from that repository the same way, as composite actions pinned to a full commit
+Seven gates now come from that repository the same way, as composite actions pinned to a full commit
 SHA in `.github/workflows/ci.yml`: `check-docs-claims` (run by `Check Documented Claims`), and
-`check-shared-module-pins`, `check-enforced-disciplines`, `check-proxy-parity`, `check-artifact-trust`
-and `auth-parity-matrix` (all run by `Check Version Consistency`). The last four arrived together:
+`check-shared-module-pins`, `check-enforced-disciplines`, `check-proxy-parity`, `check-artifact-trust`,
+`auth-parity-matrix` and `check-egress-authorization` (all run by `Check Version Consistency`).
 `check-enforced-disciplines` and `check-proxy-parity` moved out of `scripts/`, where this repository
-kept hand-copies of them, and `check-artifact-trust` and `auth-parity-matrix` are wired into this
-repository's CI for the first time in the same change. None has an `npm run` alias here,
+kept hand-copies of them, and `check-artifact-trust` and `auth-parity-matrix` were wired into this
+repository's CI for the first time in the same change. `check-egress-authorization` moved last, and
+for a reason worth recording: its three hand-copies disagreed and neither side was simply ahead, so
+what shipped upstream is the union of them — behaviour-neutral on all three trees and strictly
+stronger than any copy it replaced. This repository's copy was byte-identical to that union when it
+was deleted, so adopting the composite changed no verdict here. None has an `npm run` alias here,
 deliberately — every other `check:*` script runs a file this repository carries, and an alias standing
 for something outside the tree would fail for anyone without a sibling checkout while making a shared
 gate look locally owned. To run any of them against this working tree, check `shared-workflows` out
@@ -243,6 +247,7 @@ node ../shared-workflows/.github/actions/check-enforced-disciplines/check-enforc
 node ../shared-workflows/.github/actions/check-proxy-parity/check-proxy-parity.js .
 node ../shared-workflows/.github/actions/check-artifact-trust/check-artifact-trust.js .
 node ../shared-workflows/.github/actions/auth-parity-matrix/auth-parity-matrix.cjs .
+node ../shared-workflows/.github/actions/check-egress-authorization/check-egress-authorization.js .
 ```
 
 Each takes the repository root positionally and all but `check-enforced-disciplines` accept `--json`;
@@ -252,12 +257,15 @@ dependency-free, so no install is needed in that checkout. Their mutation self-t
 beside the implementations, which is why this repository no longer carries a `test-check-*` for any of
 them.
 
-The three that enumerate declare a measured floor in `.github/workflows/ci.yml` — `min-sites` for
-`check-proxy-parity`, `min-scanned` plus `min-sites`/`min-cells` for the other two — each with the
-date and the command that produced it recorded beside the number. `check-artifact-trust` and
-`auth-parity-matrix` find nothing here and are right to: no task downloads a tool binary and no task
-authenticates to a cloud provider. The denominator is what makes that a measurement rather than a
-vacuous green, which is why a `min-scanned` of zero is refused.
+All but `check-enforced-disciplines` declare a measured floor in `.github/workflows/ci.yml` — a
+`min-sites` for `check-proxy-parity` and `check-egress-authorization`, `min-scanned` plus
+`min-sites`/`min-cells` for `check-artifact-trust` and `auth-parity-matrix`, and, required from
+v1.28.0, a `min-claims` for `check-docs-claims` and a `min-scanned` for `check-shared-module-pins` —
+each with the date and the command that produced it recorded beside the number. Those last two are
+refused below 1 and have no default, so the pin cannot be rolled to v1.28.0 without declaring them.
+`check-artifact-trust` and `auth-parity-matrix` find nothing here and are right to: no task downloads
+a tool binary and no task authenticates to a cloud provider. The denominator is what makes that a
+measurement rather than a vacuous green, which is why a `min-scanned` of zero is refused.
 
 `scripts/lib/proxy-parity.data.json` is a file this repository owns rather than a piece of gate
 logic left behind. It declares the version of each shared `@4cloudguru` package that every task here
