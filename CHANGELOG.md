@@ -10,6 +10,13 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.8](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.7...v1.1.8) (2026-09-23)
+
+
+### Bug Fixes
+
+* **deps:** raise the adm-zip override floor to 0.6.1 in every task ([#224](https://github.com/sethbacon/azure-pipelines-release-docs/issues/224)) ([2e38782](https://github.com/sethbacon/azure-pipelines-release-docs/commit/2e3878241150e905f8c76247569f9cd9d4bf5b92)), closes [#223](https://github.com/sethbacon/azure-pipelines-release-docs/issues/223)
+
 ## [1.1.7](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.6...v1.1.7) (2026-09-11)
 
 
