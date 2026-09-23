@@ -1,18 +1,21 @@
 # zizmor configuration — https://docs.zizmor.sh/configuration/
 #
 # Documented, intentional exceptions. Every other finding fails the
-# "Scan Workflows (zizmor)" job, which is a required status check on main.
-# It began life exempting release.yml alone; weekly-security.yml joined it
-# when the self-repository audit landed, and nothing outside those two is
-# exempted.
+# "Workflow Security / Zizmor (workflow security lint)" job, which is a
+# required status check on main.
 #
-# Ported from azure-pipelines-terraform's .github/zizmor.yml, which carries
-# the same two exceptions for the same two reasons. Following the terraform
-# side rather than the packer side deliberately: packer ignores both rules
-# for the WHOLE of release.yml, so a genuinely new instance introduced later
-# for an unrelated reason would be swallowed silently. The ported ignores are
-# scoped to the exact line:column zizmor reports today, so an edit that moves
-# those steps surfaces them for review again.
+# Only self-repository is exempted. The cache-poisoning and
+# superfluous-actions entries that stood here until 2026-09-23 were dead:
+# both findings had been fixed AT SOURCE -- every setup-node step in
+# release.yml carries `package-manager-cache: false`, and
+# softprops/action-gh-release is no longer used at all -- so zizmor applied
+# 2 of the 5 declared ignores and silently discarded the rest. Their
+# line:column anchors had drifted onto unrelated lines (`contents: read`, a
+# comment, a `package-manager-cache: false`, a `subject-path:` and a
+# `cosign sign-blob`), which is where a genuinely new finding at one of
+# those coordinates would have been swallowed. Verified with the command
+# below on zizmor 1.30.1, the version the shared workflow pins:
+# `--no-config` reports the two self-repository findings and nothing else.
 #
 # Re-verify with:
 #   zizmor --no-config --format plain .github/workflows/
@@ -20,31 +23,15 @@ rules:
   # Full-SHA pinning was a convention with nothing enforcing it: the repository
   # setting `sha_pinning_required` is false, and zizmor's DEFAULT unpinned-uses
   # policy accepts a tag (`ref-pin`), so `actions/checkout@v7` would have passed
-  # the required "Scan Workflows (zizmor)" context (#30). `hash-pin` for every
-  # owner makes zizmor itself reject it. scripts/check-workflow-hardening.js
-  # asserts the same property from the other side and is mutation-proved; two
-  # gates on one property is deliberate, because this one can only be trusted
-  # as far as an upstream default.
+  # the required "Workflow Security / Zizmor (workflow security lint)" context
+  # (#30). `hash-pin` for every owner makes zizmor itself reject it.
+  # scripts/check-workflow-hardening.js asserts the same property from the other
+  # side and is mutation-proved; two gates on one property is deliberate,
+  # because this one can only be trusted as far as an upstream default.
   unpinned-uses:
     config:
       policies:
         "*": hash-pin
-  cache-poisoning:
-    ignore:
-      # release.yml's four setup-node steps do not enable dependency caching
-      # (no `cache:` input), so there is no cached artifact to poison. zizmor
-      # flags setup-node defensively in any workflow that publishes artifacts,
-      # which this one does by definition.
-      - release.yml:262:9
-      - release.yml:289:9
-      - release.yml:325:9
-      - release.yml:454:9
-  superfluous-actions:
-    ignore:
-      # softprops/action-gh-release is used for its multi-file glob upload and
-      # its release-notes generation, and for returning the release id that
-      # undraft-release needs. `gh release create` is not equivalent here.
-      - release.yml:424:15
   self-repository:
     ignore:
       # zizmor 1.30.0 wants the reusable-workflow call rewritten from
