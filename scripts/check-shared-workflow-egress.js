@@ -40,6 +40,12 @@ const path = require('path');
 
 const ROOT = path.resolve(process.argv[2] || process.cwd());
 
+// The only repository this script will ever fetch from. Held as a constant so
+// the request URL is assembled from literals plus a validated 40-hex sha,
+// rather than from strings scraped out of a workflow file.
+const SHARED_WORKFLOWS_REPO = '4cloudguru/shared-workflows';
+const SHA_RE = /^[0-9a-f]{40}$/;
+
 // name -> { callerFile, jobName, expectedPolicy }
 // jobName is the reusable workflow's OWN top-level job key (not the caller's
 // alias for it), since that is what the egress-policy line sits under.
@@ -78,9 +84,9 @@ function fetch(url) {
 /** Extracts `owner/repo/path@sha` from this repo's own caller workflow. */
 function findPin(callerFile) {
     const source = fs.readFileSync(path.join(ROOT, callerFile), 'utf8');
-    const m = source.match(/uses:\s*(4cloudguru\/shared-workflows)\/([^@\s]+)@([0-9a-f]{40})/);
+    const m = source.match(/uses:\s*4cloudguru\/shared-workflows\/([A-Za-z0-9._\/-]+)@([0-9a-f]{40})/);
     if (!m) return null;
-    return { repo: m[1], workflowPath: m[2], sha: m[3] };
+    return { workflowPath: m[1], sha: m[2] };
 }
 
 /**
@@ -113,7 +119,23 @@ async function main() {
             failures.push(`${exp.label}: could not find a 4cloudguru/shared-workflows SHA pin in ${exp.callerFile}`);
             continue;
         }
-        const url = `https://raw.githubusercontent.com/${pin.repo}/${pin.sha}/${pin.workflowPath}`;
+        // The expectation declares which workflow the caller is supposed to pin;
+        // until now nothing compared the two, so a caller repointed at a
+        // different shared workflow would have been audited as if it were this
+        // one. Comparing here also keeps the fetched URL built from constants
+        // and a /^[0-9a-f]{40}$/ sha, with no file-derived path interpolated.
+        if (pin.workflowPath !== exp.workflowPath) {
+            failures.push(
+                `${exp.label}: ${exp.callerFile} pins 4cloudguru/shared-workflows/${pin.workflowPath}, ` +
+                    `but this check is written for ${exp.workflowPath}. Update EXPECTATIONS deliberately, don't skip the check.`,
+            );
+            continue;
+        }
+        if (!SHA_RE.test(pin.sha)) {
+            failures.push(`${exp.label}: ${exp.callerFile} is not pinned to a full 40-character commit sha`);
+            continue;
+        }
+        const url = `https://raw.githubusercontent.com/${SHARED_WORKFLOWS_REPO}/${pin.sha}/${exp.workflowPath}`;
         let source;
         try {
             source = await fetch(url);
