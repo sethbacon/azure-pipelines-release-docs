@@ -113,7 +113,7 @@ jobs:
       # so the verdict here is unchanged. Its mutation self-test runs in
       # shared-workflows' CI beside the implementation it protects.
       - name: Egress authorization (SSRF class signature)
-        uses: 4cloudguru/shared-workflows/.github/actions/check-egress-authorization@c52ee27a03d06eee94e13c7bb56385d4edfb94d4 # v1.28.0
+        uses: 4cloudguru/shared-workflows/.github/actions/check-egress-authorization@2c1ffdbaab2a55eb273b9a9e7cb4864e4e0a02c8 # v1.29.1
         with:
           # 17 sites, measured 2026-09-11 on this branch with
           # `node .github/actions/check-egress-authorization/check-egress-authorization.js <root> --json`
@@ -184,7 +184,7 @@ jobs:
       # denominator is the whole point: `min-scanned` is refused below 1, so a
       # green step proves the gate read this tree rather than an empty one.
       - name: Artefact trust (packer #196 class signature)
-        uses: 4cloudguru/shared-workflows/.github/actions/check-artifact-trust@c52ee27a03d06eee94e13c7bb56385d4edfb94d4 # v1.28.0
+        uses: 4cloudguru/shared-workflows/.github/actions/check-artifact-trust@2c1ffdbaab2a55eb273b9a9e7cb4864e4e0a02c8 # v1.29.1
         with:
           # 0 sites / 34 source files scanned, measured 2026-09-10 on this branch with
           # `node .github/actions/check-artifact-trust/check-artifact-trust.js <root> --json`
