@@ -186,7 +186,13 @@ shape as the sibling extensions:
    run `node scripts/bump-minor-versions.js` from the repo root, or bump `Minor` by hand in whichever of
    `Tasks/Changelog/ChangelogV1/task.json`, `Tasks/Markdown2Html/Markdown2HtmlV1/task.json` or
    `Tasks/PublishKbArticle/PublishKbArticleV1/task.json` changed since the last release.
-4. Merging the Release PR tags `vX.Y.Z`. `release.yml` then runs `guard` → `ci` → `build` → `package`
+4. `THIRD_PARTY_NOTICES.md` is regenerated on the Release PR by the same workflow. A dependency update
+   moves a lockfile and not the notices, so between releases the file can trail `main`; on the Release
+   PR, `Build and Test` runs `node scripts/generate-third-party-notices.js --check` and fails if it is
+   stale, and `release.yml`'s `build` job runs the same check against what it has just built. Manual
+   fallback: `npm run deps`, then `node scripts/generate-third-party-notices.js`, and commit the result
+   to the Release PR branch.
+5. Merging the Release PR tags `vX.Y.Z`. `release.yml` then runs `guard` → `ci` → `build` → `package`
    → `sbom-and-sign` → `draft-release` → `publish-marketplace` → `undraft-release`: full CI, a packaged
    `.vsix`, a CycloneDX SBOM plus cosign signature per task, a draft GitHub Release, a Marketplace
    publish gated behind the `marketplace` environment's required human approval, then the release is

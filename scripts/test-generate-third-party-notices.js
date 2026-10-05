@@ -20,6 +20,9 @@
 //   - a tree the lockfile does not describe (a production package missing, or
 //     installed at another version) fails instead of writing a wrong file
 //   - tasks are discovered the way every gate and the packager discover them
+//   - `--check` compares instead of writing: a file that no longer matches what
+//     the lockfiles bundle fails by name and is left as it was, so the Release
+//     PR and the release build can refuse a stale copy
 
 const fs = require('node:fs')
 const os = require('node:os')
@@ -77,6 +80,15 @@ function generate(root) {
     output: `${result.stdout}${result.stderr}`,
     notices: fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null,
   }
+}
+
+/** Runs the generator with --check: it must compare, and never write. */
+function check(root) {
+  const file = path.join(root, 'THIRD_PARTY_NOTICES.md')
+  const before = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null
+  const result = spawnSync(process.execPath, [GENERATOR, root, '--check'], { encoding: 'utf8' })
+  const after = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null
+  return { status: result.status, output: `${result.stdout}${result.stderr}`, untouched: before === after }
 }
 
 /** The packages attributed under one task's heading, as 'name@version', or null. */
@@ -173,6 +185,46 @@ let unpruned
   const { status, notices } = generate(root)
   report(status === 0 && same(attributed(notices, 'PipelineLater'), ['another@3.0.0']), 'a task directory the generator was never told about gets its own section')
   report(same(attributed(notices, 'PipelineChangelog'), PRODUCTION), 'and the existing task is unaffected by it')
+}
+
+// --- 7. --check: is the committed file what the lockfiles bundle today? -------
+{
+  const root = fixture(changelog(CLOSURE()))
+  const file = path.join(root, 'THIRD_PARTY_NOTICES.md')
+
+  // Nothing generated yet. "No file" is not "an up-to-date file".
+  const missing = check(root)
+  report(missing.status !== 0 && !fs.existsSync(file), `--check fails when there is no notices file, and does not create one: ${missing.output.trim()}`)
+
+  generate(root)
+  const fresh = check(root)
+  report(fresh.status === 0 && fresh.untouched, `--check passes on the file the generator just wrote: ${fresh.output.trim()}`)
+
+  // A Windows checkout holds the same notices with CRLF line endings.
+  const lf = fs.readFileSync(file, 'utf8')
+  fs.writeFileSync(file, lf.replace(/\n/g, '\r\n'))
+  const crlf = check(root)
+  report(crlf.status === 0 && crlf.untouched, '--check accepts the same file checked out with CRLF line endings')
+  fs.writeFileSync(file, lf)
+
+  // A dependency moves, as it does in any Dependabot merge: the lockfile and the
+  // tree now say 1.2.4 and the committed file still says 1.2.3.
+  const lockFile = path.join(root, 'Tasks/Changelog/ChangelogV1/package-lock.json')
+  const lock = JSON.parse(fs.readFileSync(lockFile, 'utf8'))
+  lock.packages['node_modules/shipped'].version = '1.2.4'
+  fs.writeFileSync(lockFile, JSON.stringify(lock))
+  fs.writeFileSync(
+    path.join(root, 'Tasks/Changelog/ChangelogV1/node_modules/shipped/package.json'),
+    JSON.stringify({ name: 'shipped', version: '1.2.4', license: 'MIT' }),
+  )
+  const stale = check(root)
+  report(stale.status !== 0, '--check fails once a bundled package has moved and the file has not')
+  report(/THIRD_PARTY_NOTICES\.md is out of date/.test(stale.output), `the failure says the file is out of date: ${stale.output.trim().split('\n')[0]}`)
+  report(/1\.2\.3/.test(stale.output) && /1\.2\.4/.test(stale.output), 'and shows the line that differs, on both sides')
+  report(stale.untouched, '--check leaves a stale file as it found it, rather than quietly fixing it')
+
+  generate(root)
+  report(check(root).status === 0, 'regenerating clears it')
 }
 
 if (failures) {

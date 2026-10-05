@@ -247,6 +247,16 @@ jobs:
       # fails on the pull request that writes it rather than in a release (#45).
       - run: npm run test:task-runner
       - run: npm run deps
+      # On the Release PR only. A dependency update moves a lockfile and not
+      # THIRD_PARTY_NOTICES.md, so on main the file trails what the tasks bundle,
+      # and holding every Dependabot pull request to it would make this job red
+      # for a reason its author cannot act on. The Release PR is where it has to
+      # be right: release-pr-minor-bumps.yml regenerates it there, and this
+      # required job is what refuses the merge if it did not. The trees it reads
+      # are the ones `deps` has just installed.
+      - name: Third-party notices match what the tasks bundle (Release PR only)
+        if: ${{ startsWith(github.head_ref, 'release-please--') }}
+        run: node scripts/generate-third-party-notices.js --check
       - run: npm run compile
       - run: npm run test:coverage:all
       # Both task.json files declare a Node20_1 handler beside Node24, so an agent

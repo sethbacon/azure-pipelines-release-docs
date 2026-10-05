@@ -8,6 +8,12 @@ name: Auto-bump Release PR Minor Versions
 # Marketplace but never running agents. The "Release PR Minor Bumps" merge gate
 # in pr-checks.yml is the backstop, and release.yml's tag-time "Verify per-task
 # Minor bumps" guard is the final defense.
+#
+# It also regenerates THIRD_PARTY_NOTICES.md here, for the same reason and with
+# the same shape. A dependency update moves a lockfile and not the notices, so
+# on main the file trails what the tasks bundle; the Release PR is the one place
+# it has to be right. ci.yml's build job checks it on the Release PR, and
+# release.yml's build job checks it again against what it has just built.
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -25,8 +31,61 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A job of its own, holding no credential, because generating the notices
+  # means installing every task's dependencies from this branch's lockfiles.
+  # auto-bump below pushes with a repository-wide contents:write token, and it
+  # executes nothing from the branch for that reason (see its scripts/ reset).
+  # Installing there would put the branch's package.json, lockfiles and any
+  # .npmrc in the same job as that token. Here they meet nothing worth taking,
+  # and the only thing that crosses to auto-bump is one generated file.
+  regenerate-notices:
+    name: Regenerate third-party notices
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name &&
+      startsWith(github.event.pull_request.head.ref, 'release-please--')
+    steps:
+      # hardening-exception: egress-audit — this job clones this repository and
+      #   installs each task's dependencies from the npm registry; harden-runner
+      #   has never run in this repository, so no endpoint baseline exists and a
+      #   block policy written without one fails closed on its first run; audit
+      #   is what produces that list
+      - name: Harden the runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      # The generator reads each bundled package's licence from its installed
+      # package.json, and refuses to write from a tree the lockfile does not
+      # describe, so the trees are installed exactly as the release build
+      # installs them. `deps` is `npm ci --ignore-scripts` in every task.
+      - name: Install each task's dependencies
+        run: npm run deps
+      - name: Regenerate THIRD_PARTY_NOTICES.md
+        run: node scripts/generate-third-party-notices.js
+      - name: Hand the regenerated file to auto-bump
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: third-party-notices
+          path: THIRD_PARTY_NOTICES.md
+          if-no-files-found: error
+          retention-days: 1
+
   auto-bump:
     name: Auto-bump task Minor versions
+    # Runs whether or not the notices were regenerated: a registry outage in the
+    # job above must not also cost the Release PR its Minor bumps. The notices
+    # step below is skipped in that case, and the Release PR's own CI reports
+    # the stale file.
+    needs: regenerate-notices
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # Only the release-please Release PR, and only when it lives in this repo
@@ -34,6 +93,7 @@ jobs:
     # push back to a fork's branch). release-please names its branch
     # 'release-please--branches--main' etc.
     if: >-
+      !cancelled() &&
       github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name &&
       startsWith(github.event.pull_request.head.ref, 'release-please--')
     steps:
@@ -84,11 +144,22 @@ jobs:
           git fetch origin main
           git checkout origin/main -- scripts/
 
-      - name: Bump task Minor versions and push
+      # Downloaded OUTSIDE the checkout and copied in by name below, so the
+      # artifact can contribute exactly one file's contents to this job and
+      # nothing else: not a second file, not a path of its choosing.
+      - name: Fetch the regenerated notices
+        if: needs.regenerate-notices.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: third-party-notices
+          path: ${{ runner.temp }}/notices
+
+      - name: Refresh the notices, bump task Minor versions and push
         env:
           BUMP_TOKEN: ${{ steps.token.outputs.token }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           REPO: ${{ github.repository }}
+          NOTICES: ${{ runner.temp }}/notices/THIRD_PARTY_NOTICES.md
         # No ${{ }} interpolation inside this run block — every input arrives via
         # env: indirection (actionlint + zizmor both scan this file). The bump
         # script is idempotent: if the branch already carries the bumps (e.g. this
@@ -98,13 +169,37 @@ jobs:
         # no-op for exactly this reason. release-please force-pushes its branch
         # whenever a new commit lands on main, wiping this bump commit; this
         # workflow re-runs on that synchronize and re-applies it — self-healing.
+        #
+        # The notices are the same on both counts: regenerating a current file
+        # changes nothing, and a wiped commit is made again. They are committed
+        # separately and first, so each commit says what it did. The file is
+        # absent when regenerate-notices did not succeed; the bumps still land.
+        #
+        # `rm` before `cp`, not `cp` alone: the artifact's contents come from a
+        # job that ran this branch's own code, and the branch also decides what
+        # THIRD_PARTY_NOTICES.md IS. If it were a symlink into scripts/, a plain
+        # `cp` would write those contents through it, over a script this step is
+        # about to run with the token. Removing the path first means the copy
+        # can only ever create a regular file by that name.
         run: |
-          node scripts/bump-minor-versions.js
-          if git diff --quiet; then
-            echo "No Minor bumps needed; working tree clean. Nothing to commit or push."
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "chore: bump task Minor versions for release (automated)"
+          changed=0
+          if [ -f "${NOTICES}" ]; then
+            rm -f THIRD_PARTY_NOTICES.md
+            cp "${NOTICES}" THIRD_PARTY_NOTICES.md
+            if ! git diff --quiet -- THIRD_PARTY_NOTICES.md; then
+              git commit -m "chore: regenerate third-party notices for release (automated)" -- THIRD_PARTY_NOTICES.md
+              changed=1
+            fi
+          fi
+          node scripts/bump-minor-versions.js
+          if ! git diff --quiet; then
+            git commit -am "chore: bump task Minor versions for release (automated)"
+            changed=1
+          fi
+          if [ "${changed}" -eq 0 ]; then
+            echo "The notices are current and no Minor bumps are needed. Nothing to commit or push."
+            exit 0
+          fi
           git push "https://x-access-token:${BUMP_TOKEN}@github.com/${REPO}.git" "HEAD:${PR_HEAD_REF}"

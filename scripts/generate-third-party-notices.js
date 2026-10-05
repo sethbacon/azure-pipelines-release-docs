@@ -5,10 +5,19 @@ const fs = require('fs');
 const path = require('path');
 const { discoverTaskDirs } = require('./lib/task-dirs.js');
 
+// `--check` compares instead of writing: it exits non-zero when the committed
+// file is not what this script would write today, and leaves the file alone.
+// A dependency bump moves a lockfile without touching the notices, so the file
+// is expected to drift on main between releases; it is regenerated on the
+// Release PR, and this is what the Release PR's CI and the release build run to
+// refuse a copy that was not.
+const args = process.argv.slice(2);
+const CHECK = args.includes('--check');
+
 // Defaults to the repository this script lives in. It used to default to one
 // contributor's absolute Windows path, so running it anywhere else wrote the
 // file into a directory that does not exist and crashed.
-const ROOT = process.argv[2] || path.resolve(__dirname, '..');
+const ROOT = args.find((arg) => arg !== '--check') || path.resolve(__dirname, '..');
 
 // A tree the lockfile does not describe is reported and nothing is written:
 // a notice generated from the wrong tree is wrong in a way no reader can see.
@@ -74,6 +83,11 @@ out.push('Membership is each task\'s lockfile minus its dev-only entries, which 
 out.push('`npm prune --omit=dev` leaves, so the result is the same whether or not the tree');
 out.push('has been pruned.');
 out.push('');
+out.push('A dependency update moves a lockfile and not this file, so between releases it');
+out.push('can trail `main`. It is regenerated on the Release PR');
+out.push('(`.github/workflows/release-pr-minor-bumps.yml`), and the release build runs the');
+out.push('generator with `--check` and refuses a copy that does not match what it bundles.');
+out.push('');
 
 let total = 0;
 // The same enumeration every gate and the packager use, so a task cannot be
@@ -96,10 +110,36 @@ for (const rel of discoverTaskDirs(ROOT)) {
 }
 
 if (problems.length) {
-  console.error('THIRD_PARTY_NOTICES.md not written: the installed tree is not the one the lockfile describes.');
+  console.error(`THIRD_PARTY_NOTICES.md not ${CHECK ? 'checked' : 'written'}: the installed tree is not the one the lockfile describes.`);
   for (const problem of problems) console.error(`  - ${problem}`);
   process.exit(1);
 }
 
-fs.writeFileSync(path.join(ROOT, 'THIRD_PARTY_NOTICES.md'), out.join('\n'));
-console.log(`wrote THIRD_PARTY_NOTICES.md (${total} bundled package entries)`);
+const file = path.join(ROOT, 'THIRD_PARTY_NOTICES.md');
+const text = out.join('\n');
+
+if (CHECK) {
+  // A Windows checkout holds the same notices with CRLF line endings.
+  const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n') : null;
+  if (current !== text) {
+    if (current === null) {
+      console.error('THIRD_PARTY_NOTICES.md is missing.');
+    } else {
+      console.error('THIRD_PARTY_NOTICES.md is out of date: it is not what the lockfiles bundle today.');
+      const have = current.split('\n');
+      const want = text.split('\n');
+      const at = want.findIndex((line, i) => line !== have[i]);
+      const line = at === -1 ? want.length : at;
+      console.error(`  first difference at line ${line + 1}:`);
+      console.error(`    file      : ${have[line] === undefined ? '(end of file)' : have[line]}`);
+      console.error(`    lockfiles : ${want[line] === undefined ? '(end of file)' : want[line]}`);
+    }
+    console.error('Regenerate it with `node scripts/generate-third-party-notices.js` after `npm run deps`.');
+    console.error('On a Release PR .github/workflows/release-pr-minor-bumps.yml does that and pushes the result.');
+    process.exit(1);
+  }
+  console.log(`THIRD_PARTY_NOTICES.md is current (${total} bundled package entries)`);
+} else {
+  fs.writeFileSync(file, text);
+  console.log(`wrote THIRD_PARTY_NOTICES.md (${total} bundled package entries)`);
+}
