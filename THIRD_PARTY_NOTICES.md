@@ -19,6 +19,11 @@ Membership is each task's lockfile minus its dev-only entries, which is what
 `npm prune --omit=dev` leaves, so the result is the same whether or not the tree
 has been pruned.
 
+A dependency update moves a lockfile and not this file, so between releases it
+can trail `main`. It is regenerated on the Release PR
+(`.github/workflows/release-pr-minor-bumps.yml`), and the release build runs the
+generator with `--check` and refuses a copy that does not match what it bundles.
+
 ## PipelineChangelog
 
 Bundled packages: 37

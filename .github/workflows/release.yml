@@ -292,6 +292,13 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Build release
         run: npm run build:release
+      # The last place a stale THIRD_PARTY_NOTICES.md can be caught, and the
+      # only one that compares it with the trees this job has just installed
+      # and pruned -- the ones that go into the package. The Release PR
+      # regenerates the file and its CI checks it; this holds when either was
+      # bypassed, and fails the release before anything is packaged or signed.
+      - name: Third-party notices match what was just built
+        run: node scripts/generate-third-party-notices.js --check
       - name: Upload build artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
