@@ -267,6 +267,32 @@ Recorded here as they are accepted, with the reasoning and the decision date.
   `Tasks/PublishKbArticle/PublishKbArticleV1/osv-scanner.toml`) rather than at the repository root,
   because a root file does not reach nested lockfiles under `--recursive`. `npm audit` does not read
   these files, so it will keep reporting `adm-zip`; that is expected and is not a second finding.
+- **`shelljs` is held at 0.8.5 by an `overrides` entry, below the range its dependents declare**
+  (2026-10-05). The cause is `braces` (GHSA-vfj7-8cjw-p6xm), rated high: every published release
+  (`<= 3.0.3`, which is also the latest) is vulnerable to a stack-exhaustion denial of service on
+  deeply nested patterns, the GitHub advisory records `first_patched_version: none`, and the
+  upstream fix pull requests `micromatch/braces#72` and `#75` were closed unmerged on 2026-10-05.
+  Unlike `adm-zip` above it sits over the `--audit-level=high` threshold, so from the day GitHub
+  reviewed it (2026-10-02) the **Dependency audit** job failed, with the finding in the root
+  lockfile and in all three tasks', and no version of `braces` existed for an `overrides` entry to
+  name. What can be named is the package that carries it. `braces` reached every tree through one
+  edge — `shelljs ^0.10.0` → `fast-glob` → `micromatch` → `braces` — and `shelljs` is declared by
+  exactly two things here: `azure-pipelines-task-lib` in each task, and the root `tfx-cli`
+  devDependency. 0.8.5 is the last `shelljs` release before it adopted `fast-glob`, so with
+  `"shelljs": "0.8.5"` in the root `package.json` and in each task's, `fast-glob`, `micromatch` and
+  `braces` are not installed at all. What is accepted is that those two dependents run against an
+  older `shelljs` than they ask for; what bounds it is how little of it they use. In the installed
+  task-lib 5.280.3 the only file that requires `shelljs` is the test harness `mock-test.js` — one
+  `rm('-rf', …)` and one `mkdir('-p', …)` in its Node-download helper — and the runtime entry point
+  `task.js` never loads it, so nothing a pipeline executes changes. `tfx-cli` 0.24.2 calls it three
+  times: `mkdir('-p', …)` twice and `cp()` once, in its task-scaffolding command and its disk
+  cache. Each of those calls was exercised directly against the `shelljs` its caller now resolves
+  and behaves as before; every task's suite passes on it, and `tfx extension create` still packages
+  the extension. The same change raises each task's `brace-expansion` override from `5.0.9` to
+  `5.0.12` and refreshes `brace-expansion` and `http-cache-semantics` in the root lockfile; those
+  are ordinary moves to a fixed version, and nothing is accepted for them. Remove the `shelljs`
+  entries once `braces` ships a patched release, so that `shelljs` returns to the range its
+  dependents declare.
 - **Cross-repository shared-module parity is checked weekly, not on every commit** (2026-09-08,
   `sethbacon/azure-pipelines-terraform#1112` finding 1). `Markdown2Html`'s `html-sanitizer.ts` and
   `uri-scheme-guard.ts` are PROVENANCE copies of files that still live in `azure-pipelines-terraform`
