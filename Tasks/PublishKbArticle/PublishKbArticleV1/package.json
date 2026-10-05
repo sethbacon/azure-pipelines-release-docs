@@ -24,7 +24,7 @@
     "azure-pipelines-task-lib": "^5.280.3",
     "cheerio": "^1.2.0",
     "sanitize-html": "^2.17.7",
-    "undici": "^6.28.0"
+    "undici": "^6.29.0"
   },
   "overrides": {
     "diff": "^8.0.3",
@@ -43,6 +43,6 @@
     "nyc": "^18.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.0",
-    "typescript-eslint": "^8.70.0"
+    "typescript-eslint": "^8.70.1"
   }
 }
