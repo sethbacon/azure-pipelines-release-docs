@@ -351,15 +351,17 @@ jobs:
       - name: Documented claims match what this repository implements
         uses: 4cloudguru/shared-workflows/.github/actions/check-docs-claims@2c1ffdbaab2a55eb273b9a9e7cb4864e4e0a02c8 # v1.29.1
         with:
-          # 78 claims, measured 2026-09-11 on this branch with
+          # 75 claims, measured 2026-10-05 on this branch with
           # `node .github/actions/check-docs-claims/check-docs-claims.js <root> --json`
           # from shared-workflows at this pin, summing the `enumerated` counters:
-          # 6 controls + 6 ciJobs + 0 fileTables + 51 pathRefs + 1 claimDeps +
-          # 3 thirdPartyNotices + 11 workflows. Required from v1.28.0 and refused
+          # 6 controls + 6 ciJobs + 0 fileTables + 48 pathRefs + 1 claimDeps +
+          # 3 thirdPartyNotices + 11 workflows. Down from 78 because SECURITY.md
+          # named the three per-task osv-scanner.toml files and they are deleted.
+          # Required from v1.28.0 and refused
           # below 1 -- a documents-check that checked no document is not a pass.
           # Measured in a git worktree, because the gate's git-ignore probe needs
           # a repository. Move the number in the same change that moves the count.
-          min-claims: 78
+          min-claims: 75
       # SECURITY.md's documented OIDC subject (owner/repo/environment) vs the
       # release.yml job that actually requests the token and the extension
       # manifest's declared repository -- see the script header.

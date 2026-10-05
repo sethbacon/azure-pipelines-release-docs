@@ -104,7 +104,7 @@ staying still would have been the same drift pointing the other way.
 | `publish-environment-approval` | enforced | The `publish-marketplace` job declares `environment: marketplace`, so the publish stops at that environment's protection rules. The `guard` job re-verifies, fail-closed, that the environment still has a required reviewer and a deployment branch/ref policy before anything is built.                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `vsix-signature`               | enforced | `sbom-and-sign` signs the `.vsix` with keyless cosign and attaches a build-provenance attestation. Both the draft release and the publish re-run `cosign verify-blob` against this repository's own workflow identity first, so the bytes published are provably the bytes signed.                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `workflow-hardening`           | enforced | `.github/workflows/workflow-hardening.yml` calls `4cloudguru/shared-workflows`' gate and fails the build if any `uses:` is not pinned to a full commit SHA with a version comment, any npm install runs without `--ignore-scripts`, any job declares no `timeout-minutes`, or any job's egress policy is `audit` without a recorded reason on the step. Every one of those four was true of this tree and enforced by nothing (#21, #22, #23, #30). The checker is taken from that repository at the pinned commit, so there is no local copy to weaken; its 23-case mutation self-test breaks each property in a fixture and asserts the gate names it, and runs there beside the checker rather than here beside a fork of it. |
-| `dependency-scan`              | enforced | `.github/workflows/weekly-security.yml` runs OSV-Scanner over the tree every Monday and on demand, covering advisories the npm registry's own database does not carry, and re-runs the whole of CI as a drift canary for the weeks when nothing merges. Since 2026-09-09 it calls `4cloudguru/shared-workflows`' `osv-scan` action rather than `google/osv-scanner-action` directly: that action runs the scanner from a **digest-pinned** image, so the full-SHA pin now covers the scanner binary and not merely its `action.yml`, and it reports the scanner's real exit code, so a finding files a tracking issue while a scanner that did not complete fails the job. What remains stated rather than inherited is what the scan does **not** flag: the per-task `osv-scanner.toml` suppressions, each bounded and reasoned under [Residual risks](#residual-risks).                                                                                                             |
+| `dependency-scan`              | enforced | `.github/workflows/weekly-security.yml` runs OSV-Scanner over the tree every Monday and on demand, covering advisories the npm registry's own database does not carry, and re-runs the whole of CI as a drift canary for the weeks when nothing merges. Since 2026-09-09 it calls `4cloudguru/shared-workflows`' `osv-scan` action rather than `google/osv-scanner-action` directly: that action runs the scanner from a **digest-pinned** image, so the full-SHA pin now covers the scanner binary and not merely its `action.yml`, and it reports the scanner's real exit code, so a finding files a tracking issue while a scanner that did not complete fails the job. Nothing it finds is currently suppressed: the repository carries no `osv-scanner.toml`. An advisory that has to be accepted gets a bounded, reasoned entry beside the lockfile it covers and a record under [Residual risks](#residual-risks). |
 | `sbom-attestation`             | enforced | `sbom-and-sign` generates a CycloneDX SBOM for the extension root and one per task (`sbom-extension.cdx.json`, `sbom-changelogv1.cdx.json`, `sbom-markdown2htmlv1.cdx.json`, `sbom-publishkbarticlev1.cdx.json`) and attests each to the `.vsix`. `scripts/check-release-readiness.js` fails the release if a task ever lands without a matching SBOM step, so this coverage cannot silently fall behind the task tree again.                                                                                                                                                                                                                                                |
 
 <!-- controls:end -->
@@ -244,29 +244,29 @@ Recorded here as they are accepted, with the reasoning and the decision date.
   rather than by tag — so the full-SHA pin on that `uses:` line now fixes the scanner that runs, and
   the checksum-verified binary download described above was never needed. The risk is closed; the
   entry is kept because the reasoning is what the replacement had to satisfy.
-- **`adm-zip` 0.6.0 (GHSA-vwc7-r8mq-g2x9) is suppressed in each task's `osv-scanner.toml`**
-  (2026-09-09, tracked across the extension family in `sethbacon/azure-pipelines-packer#435`). The
-  advisory is a symlink-following flaw on extraction, rated moderate, and **no patched version
-  exists**: the GitHub advisory records `first_patched_version: none`, 0.6.0 is still the latest
-  release, and the upstream fix `cthackers/adm-zip#575` is open. There is therefore nothing an
-  `overrides` entry could name — the `"adm-zip": "^0.6.0"` already in each task's `package.json` holds
-  the newest thing published, not a fix. What makes this an acceptance rather than an unfixed
-  exposure is that the vulnerable code is never loaded. `adm-zip` is reached only through
-  `azure-pipelines-task-lib`, which declares `adm-zip ^0.6.0`, and the Node package **never requires
-  it**: in the installed 5.279.0 tree the string appears in `package.json` and in no shipped file,
-  because the dependency belongs to task-lib's PowerShell library, which these tasks do not ship
-  (`microsoft/azure-pipelines-task-lib#1202`, closed 2026-08-26). Nor is it reached another way: no
-  task in this extension extracts an archive at all — `ChangelogV1` reads git history,
-  `Markdown2HtmlV1` renders markdown, `PublishKbArticleV1` posts over HTTP — and no source file here
-  requires `adm-zip` or any other unzip path. The suppression is **bounded at 2026-12-31**,
-  deliberately shorter than an open-ended acceptance because a fix is actively in progress upstream;
-  re-evaluate at expiry or when `adm-zip` > 0.6.0 ships, whichever comes first. Each
-  `osv-scanner.toml` sits **beside the lockfile it covers**
-  (`Tasks/Changelog/ChangelogV1/osv-scanner.toml`,
-  `Tasks/Markdown2Html/Markdown2HtmlV1/osv-scanner.toml`,
-  `Tasks/PublishKbArticle/PublishKbArticleV1/osv-scanner.toml`) rather than at the repository root,
-  because a root file does not reach nested lockfiles under `--recursive`. `npm audit` does not read
-  these files, so it will keep reporting `adm-zip`; that is expected and is not a second finding.
+- **`adm-zip` 0.6.0 (GHSA-vwc7-r8mq-g2x9) was suppressed in each task's `osv-scanner.toml`**
+  (2026-09-09, tracked across the extension family in `sethbacon/azure-pipelines-packer#435`;
+  **resolved 2026-10-05**). The advisory is a symlink-following flaw on extraction, rated moderate,
+  and when it was accepted **no patched version existed**: the GitHub advisory recorded
+  `first_patched_version: none` and 0.6.0 was the latest release, so there was nothing an
+  `overrides` entry could name. What made this an acceptance rather than an unfixed exposure is
+  that the vulnerable code was never loaded. `adm-zip` was reached only through
+  `azure-pipelines-task-lib`, which declared `adm-zip ^0.6.0`, and the Node package **never
+  required it**: in the installed 5.279.0 tree the string appeared in `package.json` and in no
+  shipped file, because the dependency belongs to task-lib's PowerShell library, which these tasks
+  do not ship (`microsoft/azure-pipelines-task-lib#1202`, closed 2026-08-26). Nor was it reached
+  another way: no task in this extension extracts an archive at all — `ChangelogV1` reads git
+  history, `Markdown2HtmlV1` renders markdown, `PublishKbArticleV1` posts over HTTP — and no source
+  file here requires `adm-zip` or any other unzip path. The suppression was bounded at 2026-12-31
+  and did not need to run that long. `adm-zip` 0.6.1 shipped on 2026-09-11, outside the advisory's
+  affected range (`>= 0.5.9, <= 0.6.0`); each task's override was raised to `"adm-zip": "^0.6.1"`
+  on 2026-09-23; and the `azure-pipelines-task-lib` every task took on 2026-09-28 (5.281.0) no
+  longer depends on `adm-zip`, so no lockfile here contains it. From then on the three
+  `osv-scanner.toml` files — one beside each task's lockfile, in `Tasks/Changelog/ChangelogV1/`,
+  `Tasks/Markdown2Html/Markdown2HtmlV1/` and `Tasks/PublishKbArticle/PublishKbArticleV1/` —
+  suppressed nothing, and they have been deleted: the weekly scan reports against every lockfile
+  unfiltered, and reports nothing. The override stays as a floor, so that a dependency which
+  brings `adm-zip` back brings a fixed version.
 - **`shelljs` is held at 0.8.5 by an `overrides` entry, below the range its dependents declare**
   (2026-10-05). The cause is `braces` (GHSA-vfj7-8cjw-p6xm), rated high: every published release
   (`<= 3.0.3`, which is also the latest) is vulnerable to a stack-exhaustion denial of service on

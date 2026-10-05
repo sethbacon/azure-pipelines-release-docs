@@ -203,9 +203,15 @@ jobs:
             # substitution (SC2016) and actionlint runs shellcheck over every
             # `run:` block, so prose punctuation fails a required context.
             echo 'Scanned by the shared osv-scan action, which runs a digest-pinned scanner image, so'
-            echo 'the SHA pin on that action covers the scanner itself and not only its metadata. The'
-            echo 'suppressions filtering this report are the per-task osv-scanner.toml files; the'
-            echo 'reasoning for each is in the residual risks in SECURITY.md.'
+            echo 'the SHA pin on that action covers the scanner itself and not only its metadata.'
+            echo
+            # Counted, not stated. This used to say the report was filtered by
+            # "the per-task osv-scanner.toml files", and went on saying so after
+            # the last of them had stopped suppressing anything.
+            suppressions="$(git ls-files -- '*osv-scanner.toml' | wc -l | tr -d ' ')"
+            echo "Suppression files (osv-scanner.toml) in this tree: ${suppressions}. Such a file filters this"
+            echo 'report only for the lockfile it sits beside, and each one is reasoned in the residual'
+            echo 'risks in SECURITY.md.'
           } >> "$GITHUB_STEP_SUMMARY"
 
       # Findings open a ticket instead of only reddening Monday. Gated on
