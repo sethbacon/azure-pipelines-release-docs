@@ -26,6 +26,8 @@
 //   no-contribution    a task with no contributions[] entry               (#47)
 //   no-files-entry     a task no files[] entry covers                (#47,#29)
 //   dangling-file      a files[] entry pointing at nothing                (#29)
+//   unpackaged-asset   a root asset the packager copies into build/ and no
+//                      manifest entry packages, so it never reaches the .vsix
 //   version-drift      manifest version != .release-please-manifest.json  (#29)
 //
 // The scratch tree carries its own copy of scripts/, so each script's
@@ -308,6 +310,28 @@ try {
     }),
     'Tasks/DoesNotExist',
   )
+
+  // A root asset copy-build.js composes and nothing in the manifest packages.
+  // tfx builds the .vsix from what content, icons and files[] name, so the asset
+  // sits in build/ and is not in the package. THIRD_PARTY_NOTICES.md shipped that
+  // way: required by this gate, copied by the packager, absent from every release.
+  expectRejection(
+    'unpackaged-asset',
+    GATE,
+    (dir) => fs.writeFileSync(path.join(dir, 'THIRD_PARTY_NOTICES.md'), '# Fixture notices\n'),
+    'THIRD_PARTY_NOTICES.md: copied into build/ but nothing in azure-devops-extension.json packages it',
+  )
+  // ...and the same asset is accepted once files[] names it, so the rule above
+  // is about the manifest and not about the file being there.
+  {
+    const dir = makeCleanTree('case-packaged-asset')
+    fs.writeFileSync(path.join(dir, 'THIRD_PARTY_NOTICES.md'), '# Fixture notices\n')
+    editManifest(dir, (m) => {
+      m.files.push({ path: 'THIRD_PARTY_NOTICES.md' })
+    })
+    const result = run(dir, GATE)
+    report(result.status === 0, `packaged-asset: ${GATE} accepts the asset once files[] names it${result.status === 0 ? '' : `\n${result.stdout}${result.stderr}`}`)
+  }
 
   // #29 — the Marketplace version drifting from the tag and changelog.
   expectRejection(

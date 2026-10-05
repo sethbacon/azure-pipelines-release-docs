@@ -50,6 +50,9 @@
     },
     {
       "path": "Tasks/PublishKbArticle"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md"
     }
   ],
   "repository": {
