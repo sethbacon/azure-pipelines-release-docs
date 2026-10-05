@@ -35,7 +35,8 @@
     "test:composition": "node scripts/test-package-composition.js",
     "test:gates": "node scripts/test-gates.js",
     "test:task-runner": "node scripts/test-for-each-task.js",
-    "test:release-readiness": "node scripts/test-release-readiness.js"
+    "test:release-readiness": "node scripts/test-release-readiness.js",
+    "test:notices": "node scripts/test-generate-third-party-notices.js"
   },
   "overrides": {
     "js-yaml": "^4.3.2",

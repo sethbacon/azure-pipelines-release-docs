@@ -1,46 +1,54 @@
-// Generate THIRD_PARTY_NOTICES.md from the ACTUAL pruned production trees, so
-// the attribution matches what is bundled rather than what someone remembered.
+// Generate THIRD_PARTY_NOTICES.md for the production closure each task's
+// lockfile declares, so the attribution matches what the release build bundles
+// rather than what happens to be installed or what someone remembered.
 const fs = require('fs');
 const path = require('path');
+const { discoverTaskDirs } = require('./lib/task-dirs.js');
 
 // Defaults to the repository this script lives in. It used to default to one
 // contributor's absolute Windows path, so running it anywhere else wrote the
 // file into a directory that does not exist and crashed.
 const ROOT = process.argv[2] || path.resolve(__dirname, '..');
-const TASKS = [
-  ['PipelineChangelog', 'Tasks/Changelog/ChangelogV1'],
-  ['PipelineMarkdown2Html', 'Tasks/Markdown2Html/Markdown2HtmlV1'],
-  ['PipelinePublishKbArticle', 'Tasks/PublishKbArticle/PublishKbArticleV1'],
-];
 
-function collect(nodeModules) {
+// A tree the lockfile does not describe is reported and nothing is written:
+// a notice generated from the wrong tree is wrong in a way no reader can see.
+const problems = [];
+
+// The release build bundles what `npm ci` then `npm prune --omit=dev` leaves:
+// every lockfile entry not flagged `dev`. Membership is read from the lockfile
+// for that reason. This used to walk node_modules and list whatever was there,
+// so only a pruned tree gave the right answer -- run on an unpruned one it
+// attributed every devDependency as bundled (317 packages for PipelineChangelog
+// when 37 ship), and the only gate on the file is that it exists.
+// The installed package.json still supplies the licence and the repository.
+function collect(rel) {
+  if (!fs.existsSync(path.join(ROOT, rel, 'node_modules'))) {
+    problems.push(`${rel}: dependencies are not installed (run \`npm run deps\`)`);
+    return [];
+  }
+  const lock = JSON.parse(fs.readFileSync(path.join(ROOT, rel, 'package-lock.json'), 'utf8'));
   const found = new Map();
-  const visit = (dir) => {
-    let entries;
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    for (const e of entries) {
-      if (!e.isDirectory()) continue;
-      if (e.name === '.bin' || e.name === '.cache') continue;
-      const full = path.join(dir, e.name);
-      if (e.name.startsWith('@')) { visit(full); continue; }
-      const pkgFile = path.join(full, 'package.json');
-      if (fs.existsSync(pkgFile)) {
-        try {
-          const p = JSON.parse(fs.readFileSync(pkgFile, 'utf8'));
-          if (p.name && p.version) {
-            const license = typeof p.license === 'string'
-              ? p.license
-              : (p.license && p.license.type) || (Array.isArray(p.licenses) && p.licenses.map((l) => l.type).join(' OR ')) || 'see package';
-            const repo = typeof p.repository === 'string' ? p.repository : (p.repository && p.repository.url) || '';
-            found.set(`${p.name}@${p.version}`, { name: p.name, version: p.version, license, repo: repo.replace(/^git\+/, '').replace(/\.git$/, '') });
-          }
-        } catch { /* unreadable package.json: skipped, and absent from the notice */ }
+  for (const [key, entry] of Object.entries(lock.packages)) {
+    if (key === '' || entry.dev) continue;
+    const pkgFile = path.join(ROOT, rel, key, 'package.json');
+    if (!fs.existsSync(pkgFile)) {
+      // npm leaves an optional dependency out when the platform does not match.
+      if (!entry.optional && !entry.devOptional) {
+        problems.push(`${rel}/${key}: the lockfile resolves ${entry.version} but it is not installed (run \`npm run deps\`)`);
       }
-      const nested = path.join(full, 'node_modules');
-      if (fs.existsSync(nested)) visit(nested);
+      continue;
     }
-  };
-  visit(nodeModules);
+    const p = JSON.parse(fs.readFileSync(pkgFile, 'utf8'));
+    if (p.version !== entry.version) {
+      problems.push(`${rel}/${key}: installed at ${p.version} but the lockfile resolves ${entry.version} (run \`npm run deps\`)`);
+      continue;
+    }
+    const license = typeof p.license === 'string'
+      ? p.license
+      : (p.license && p.license.type) || (Array.isArray(p.licenses) && p.licenses.map((l) => l.type).join(' OR ')) || 'see package';
+    const repo = typeof p.repository === 'string' ? p.repository : (p.repository && p.repository.url) || '';
+    found.set(`${p.name}@${p.version}`, { name: p.name, version: p.version, license, repo: repo.replace(/^git\+/, '').replace(/\.git$/, '') });
+  }
   return [...found.values()].sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
 }
 
@@ -61,21 +69,20 @@ out.push('attested against the published `.vsix` (`sbom-changelogv1.cdx.json`,')
 out.push('`sbom-markdown2htmlv1.cdx.json`, `sbom-publishkbarticlev1.cdx.json`). This file');
 out.push('is the human-readable attribution for the same closure.');
 out.push('');
-out.push('Regenerate with `node scripts/generate-third-party-notices.js` after installing');
-out.push('and pruning each task, which is what the release build does.');
+out.push('Regenerate with `node scripts/generate-third-party-notices.js` after `npm run deps`.');
+out.push('Membership is each task\'s lockfile minus its dev-only entries, which is what');
+out.push('`npm prune --omit=dev` leaves, so the result is the same whether or not the tree');
+out.push('has been pruned.');
 out.push('');
 
 let total = 0;
-for (const [taskName, rel] of TASKS) {
-  const nm = path.join(ROOT, rel, 'node_modules');
+// The same enumeration every gate and the packager use, so a task cannot be
+// bundled without being attributed here.
+for (const rel of discoverTaskDirs(ROOT)) {
+  const taskName = JSON.parse(fs.readFileSync(path.join(ROOT, rel, 'task.json'), 'utf8')).name;
+  const pkgs = collect(rel);
   out.push(`## ${taskName}`);
   out.push('');
-  if (!fs.existsSync(nm)) {
-    out.push('_Dependencies not installed when this file was generated._');
-    out.push('');
-    continue;
-  }
-  const pkgs = collect(nm);
   total += pkgs.length;
   out.push(`Bundled packages: ${pkgs.length}`);
   out.push('');
@@ -86,6 +93,12 @@ for (const [taskName, rel] of TASKS) {
     out.push(`| ${link} | ${p.version} | ${p.license} |`);
   }
   out.push('');
+}
+
+if (problems.length) {
+  console.error('THIRD_PARTY_NOTICES.md not written: the installed tree is not the one the lockfile describes.');
+  for (const problem of problems) console.error(`  - ${problem}`);
+  process.exit(1);
 }
 
 fs.writeFileSync(path.join(ROOT, 'THIRD_PARTY_NOTICES.md'), out.join('\n'));

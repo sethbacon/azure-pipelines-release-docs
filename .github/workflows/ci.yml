@@ -86,6 +86,11 @@ jobs:
         run: node scripts/test-package-composition.js
       - name: Version, universe, publish-identity and audit-scope gates detect what they claim to
         run: node scripts/test-gates.js
+      # Nothing compares THIRD_PARTY_NOTICES.md with what the .vsix bundles, so the
+      # generator is the only place its accuracy is decided. This holds it to the
+      # lockfile's production closure whatever state the tree is in.
+      - name: Notices generator attributes the production closure, not the install
+        run: node scripts/test-generate-third-party-notices.js
       # The class signatures, run here as well as by security-orchestration's
       # replay, so this repository and the replay cannot answer differently about
       # the same code. They arrived with the tasks and were wired into nothing,
