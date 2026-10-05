@@ -10,6 +10,16 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.9](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.8...v1.1.9) (2026-10-05)
+
+
+### Bug Fixes
+
+* **deps:** drop unpatched braces via a shelljs 0.8.5 override ([#242](https://github.com/sethbacon/azure-pipelines-release-docs/issues/242)) ([dba42ee](https://github.com/sethbacon/azure-pipelines-release-docs/commit/dba42ee79fa9ab71862b3ea723d10c6c844ccd99))
+* **notices:** attribute what each task bundles, not what is installed ([#249](https://github.com/sethbacon/azure-pipelines-release-docs/issues/249)) ([c64baae](https://github.com/sethbacon/azure-pipelines-release-docs/commit/c64baaed7574fda1392df2b5bab2e84194e9ee3d))
+* **notices:** regenerate on the Release PR and refuse a stale copy ([#252](https://github.com/sethbacon/azure-pipelines-release-docs/issues/252)) ([f90faef](https://github.com/sethbacon/azure-pipelines-release-docs/commit/f90faef50ced38bf7fa0fdcd228a505745e33023))
+* **package:** ship THIRD_PARTY_NOTICES.md in the .vsix ([#251](https://github.com/sethbacon/azure-pipelines-release-docs/issues/251)) ([36a5da9](https://github.com/sethbacon/azure-pipelines-release-docs/commit/36a5da9c77654abcca94d3d6535bca4e3678b407))
+
 ## [1.1.8](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.7...v1.1.8) (2026-09-23)
 
 
