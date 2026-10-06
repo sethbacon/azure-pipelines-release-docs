@@ -10,6 +10,14 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.10](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.9...v1.1.10) (2026-10-06)
+
+
+### Bug Fixes
+
+* **deps:** bump source-map-js to 1.2.2 for GHSA-68fv-2mgg-jv7q ([#253](https://github.com/sethbacon/azure-pipelines-release-docs/issues/253)) ([d9ca66e](https://github.com/sethbacon/azure-pipelines-release-docs/commit/d9ca66e216f831e54e9e1f84c434283160b7d054))
+* keep PublishKbArticle's source key in Meta ([#255](https://github.com/sethbacon/azure-pipelines-release-docs/issues/255)) ([72e565b](https://github.com/sethbacon/azure-pipelines-release-docs/commit/72e565bbf75bc2bd83b946b4b9900a8747df5c64))
+
 ## [1.1.9](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.8...v1.1.9) (2026-10-05)
 
 
