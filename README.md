@@ -89,7 +89,7 @@ local images as attachments.
 | `category`          | —         | Category name (or `sys_id:<id>`). Auto-created if not found.                                           |
 | `subcategory`       | —         | Subcategory name (requires `category`). Auto-created if not found.                                     |
 | `workflowState`     | `draft`   | `draft`, `review`, or `publish` — the article's target workflow state.                                 |
-| `sourceKey`         | —         | Stable correlation key for idempotent create/update, stored as `wiki-source:` metadata.                |
+| `sourceKey`         | —         | Stable correlation key for idempotent create/update, kept as a `wiki-source: <key>` line in the article's Meta field. |
 | `readKeyFrom`       | —         | Markdown file whose `kb-key:` front-matter supplies `sourceKey`.                                       |
 | `emitManifest`      | —         | JSON manifest file to append article metadata to (instead of writing a legacy `KB*.json`).             |
 | `force`             | `false`   | Continue past content-loss warnings. Security checks (script tags, `javascript:`/`data:` URIs, etc.) always fail regardless — see SECURITY.md. |
@@ -105,6 +105,21 @@ Azure DevOps' own vaulted service-connection storage. When authenticating inline
 and `password` are `isSecret` task inputs: set them from a secret pipeline variable
 (`$(mySecretVariable)`), never as a literal in YAML, so they are masked in logs and not stored in
 plain text in the pipeline definition.
+
+**Source key.** `sourceKey` (or `readKeyFrom`) is kept on the article as a `wiki-source: <key>` line
+in its Meta field (`kb_knowledge.meta`), and the next run finds the article by querying that field.
+The integration user therefore has to be able to read and write `meta`. The log says how the lookup
+went (`Source key '<key>' matched article <sys_id>.` or `No article carries source key '<key>'.`), and
+the task warns when a write comes back without the key, because a later run would then create a
+duplicate. Leave the line ending with the key: text added after the key on its line stops the article
+being found.
+
+`meta_description`, where earlier versions kept the key, is still written on a create and still read.
+It is not relied on, because an instance may regenerate that field from the article body on every
+save, and on such an instance every lookup missed. An article published before this change carries no
+key in Meta: give its `sys_id` as `articleId` for one run, which marks it, or add the line to its Meta
+field by hand. Without either, its next publish creates one more article, marked, and later runs
+update that one.
 
 See [the migration note](#why-a-separate-extension) below for why both tasks moved here and what the
 cutover window is.
