@@ -76,7 +76,7 @@ local images as attachments.
 | ------------------- | --------- | ------------------------------------------------------------------------------------------------------ |
 | `serviceConnection` | —         | A `ServiceNowKb` service connection. If unset, provide `instance` and credentials inline below.        |
 | `instance`          | —         | ServiceNow instance name. Required when no service connection is set.                                  |
-| `authType`          | `oauth`   | `oauth` (client credentials) or `basic` (username/password) — only used without a service connection.  |
+| `authType`          | `oauth`   | `oauth` (client credentials) or `basic` (username/password) — only used without a service connection; a connection's own scheme takes precedence. |
 | `clientId`          | —         | OAuth client ID (`authType = oauth`).                                                                  |
 | `clientSecret`      | —         | OAuth client secret (`authType = oauth`). **Secret-typed** — pass a secret pipeline variable, never a literal. |
 | `username`          | —         | ServiceNow username (`authType = basic`).                                                               |
@@ -88,7 +88,7 @@ local images as attachments.
 | `author`            | —         | ServiceNow username of the article author. Required when creating a new article.                       |
 | `category`          | —         | Category name (or `sys_id:<id>`). Auto-created if not found.                                           |
 | `subcategory`       | —         | Subcategory name (requires `category`). Auto-created if not found.                                     |
-| `workflowState`     | `draft`   | `draft`, `review`, or `publish` — the article's target workflow state.                                 |
+| `workflowState`     | `draft`   | `draft`, `review`, or `publish` — the article's target workflow state. Applied on every run, updates included: set `publish` to keep an article published. |
 | `sourceKey`         | —         | Stable correlation key for idempotent create/update, kept as a `wiki-source: <key>` line in the article's Meta field. |
 | `readKeyFrom`       | —         | Markdown file whose `kb-key:` front-matter supplies `sourceKey`.                                       |
 | `emitManifest`      | —         | JSON manifest file to append article metadata to (instead of writing a legacy `KB*.json`).             |
