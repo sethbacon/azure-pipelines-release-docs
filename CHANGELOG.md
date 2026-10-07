@@ -10,6 +10,13 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.11](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.10...v1.1.11) (2026-10-07)
+
+
+### Bug Fixes
+
+* **PublishKbArticle:** honour a service connection's auth scheme ([#256](https://github.com/sethbacon/azure-pipelines-release-docs/issues/256)) ([5b4c7d3](https://github.com/sethbacon/azure-pipelines-release-docs/commit/5b4c7d30eb9486bce692158637bbde1b4f669abb))
+
 ## [1.1.10](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.9...v1.1.10) (2026-10-06)
 
 
