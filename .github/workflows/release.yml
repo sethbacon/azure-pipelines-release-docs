@@ -107,7 +107,7 @@ jobs:
       # unobserved outage. Derive the lists from the first release run's harden-runner
       # summaries and flip all seven jobs then; the workflow-hardening gate keeps this
       # reason in front of whoever edits the file (#23).
-      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
         with:
           egress-policy: audit
 
@@ -273,7 +273,7 @@ jobs:
       # run, so no audit-mode record exists to derive an allowlist from. This job also
       # runs `npm ci` and the per-task installs, whose destinations are npm's registry
       # and CDN rather than a set this file can enumerate (#23).
-      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -315,7 +315,7 @@ jobs:
       # hardening-exception: egress-audit — same as `guard`: no audit-mode record
       # exists yet, and this job runs `npm ci` plus `tfx extension create`, whose
       # egress is npm's and Microsoft's to change rather than this file's (#23).
-      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -364,7 +364,7 @@ jobs:
       # in 4cloudguru/pipeline-task-core's publish.yml (fulcio, rekor, tuf-repo-cdn,
       # registry.npmjs.org, api.github.com); confirm it against this job's first real
       # run and flip it then (#23).
-      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -484,7 +484,7 @@ jobs:
       # exists for this workflow yet. This job downloads artifacts, installs cosign
       # from a GitHub release and verifies against Rekor before creating the draft
       # (#23).
-      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -586,7 +586,7 @@ jobs:
       # no allowlist, and that fix lives in 4cloudguru/shared-workflows (those are
       # shared reusable workflows, not something this repo's own file can flip) --
       # left for that issue rather than folded in here.
-      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -706,7 +706,7 @@ jobs:
       # hardening-exception: egress-audit — same as `guard`: no observed egress record
       # exists for this workflow yet. This job runs one github-script call against the
       # API and is the cheapest of the seven to flip once that record exists (#23).
-      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
         with:
           egress-policy: audit
       - name: Undraft the release
