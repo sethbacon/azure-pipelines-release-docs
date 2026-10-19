@@ -21,7 +21,7 @@
   "dependencies": {
     "@4cloudguru/pipeline-task-ado": "^0.11.1",
     "@4cloudguru/pipeline-task-core": "^0.9.3",
-    "azure-pipelines-task-lib": "^5.281.0",
+    "azure-pipelines-task-lib": "^5.281.1",
     "cheerio": "^1.2.0",
     "sanitize-html": "^2.18.0",
     "undici": "^6.29.0"
