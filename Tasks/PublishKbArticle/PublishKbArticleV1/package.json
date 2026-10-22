@@ -23,7 +23,7 @@
     "@4cloudguru/pipeline-task-core": "^0.9.3",
     "azure-pipelines-task-lib": "^5.281.0",
     "cheerio": "^1.2.0",
-    "sanitize-html": "^2.18.0",
+    "sanitize-html": "^2.18.1",
     "undici": "^6.29.0"
   },
   "overrides": {
