@@ -10,6 +10,13 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.12](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.11...v1.1.12) (2026-10-22)
+
+
+### Bug Fixes
+
+* **deps:** patch follow-redirects, sanitize-html and markdown-it in every task ([#273](https://github.com/sethbacon/azure-pipelines-release-docs/issues/273)) ([76f445a](https://github.com/sethbacon/azure-pipelines-release-docs/commit/76f445a8ac802313397e5fa7174186700b445bc5))
+
 ## [1.1.11](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.10...v1.1.11) (2026-10-07)
 
 
