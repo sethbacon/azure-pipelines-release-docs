@@ -38,7 +38,7 @@ Bundled packages: 37
 | [brace-expansion](https://github.com/juliangruber/brace-expansion) | 5.0.12 | MIT |
 | debug | 4.4.3 | MIT |
 | [es-errors](https://github.com/ljharb/es-errors) | 1.3.0 | MIT |
-| follow-redirects | 1.16.0 | MIT |
+| follow-redirects | 1.16.1 | MIT |
 | [fs.realpath](https://github.com/isaacs/fs.realpath) | 1.0.0 | ISC |
 | [function-bind](https://github.com/Raynos/function-bind) | 1.1.2 | MIT |
 | glob | 7.2.3 | ISC |
@@ -70,7 +70,7 @@ Bundled packages: 37
 
 ## PipelineMarkdown2Html
 
-Bundled packages: 82
+Bundled packages: 81
 
 | Package | Version | Licence |
 | --- | --- | --- |
@@ -84,9 +84,8 @@ Bundled packages: 82
 | cheerio-select | 2.1.0 | BSD-2-Clause |
 | css-select | 5.2.2 | BSD-2-Clause |
 | [css-what](https://github.com/fb55/css-what) | 6.2.2 | BSD-2-Clause |
-| [dayjs](https://github.com/iamkun/dayjs) | 1.11.21 | MIT |
+| [dayjs](https://github.com/iamkun/dayjs) | 1.11.23 | MIT |
 | debug | 4.4.3 | MIT |
-| deepmerge | 4.3.1 | MIT |
 | dom-serializer | 2.0.0 | MIT |
 | dom-serializer | 3.1.1 | MIT |
 | domelementtype | 2.3.0 | BSD-2-Clause |
@@ -102,7 +101,7 @@ Bundled packages: 82
 | [entities](https://github.com/fb55/entities) | 8.0.0 | BSD-2-Clause |
 | [es-errors](https://github.com/ljharb/es-errors) | 1.3.0 | MIT |
 | escape-string-regexp | 4.0.0 | MIT |
-| follow-redirects | 1.16.0 | MIT |
+| follow-redirects | 1.16.1 | MIT |
 | [fs.realpath](https://github.com/isaacs/fs.realpath) | 1.0.0 | ISC |
 | [function-bind](https://github.com/Raynos/function-bind) | 1.1.2 | MIT |
 | glob | 7.2.3 | ISC |
@@ -116,11 +115,11 @@ Bundled packages: 82
 | inherits | 2.0.4 | ISC |
 | interpret | 1.4.0 | MIT |
 | [is-core-module](https://github.com/inspect-js/is-core-module) | 2.17.0 | MIT |
-| is-plain-object | 5.0.0 | MIT |
+| is-plain-object | 5.1.0 | MIT |
 | js-yaml | 4.3.2 | MIT |
-| [launder](https://github.com/apostrophecms/apostrophe) | 1.7.1 | MIT |
+| [launder](https://github.com/apostrophecms/apostrophe) | 1.7.2 | MIT |
 | linkify-it | 5.0.2 | MIT |
-| markdown-it | 14.3.2 | MIT |
+| markdown-it | 14.3.3 | MIT |
 | mdurl | 2.0.0 | MIT |
 | mime-db | 1.52.0 | MIT |
 | mime-types | 2.1.35 | MIT |
@@ -144,7 +143,7 @@ Bundled packages: 82
 | resolve | 1.22.12 | MIT |
 | [safer-buffer](https://github.com/ChALkeR/safer-buffer) | 2.1.2 | MIT |
 | sanitize-filename | 1.6.4 | WTFPL OR ISC |
-| [sanitize-html](https://github.com/apostrophecms/apostrophe) | 2.17.7 | MIT |
+| [sanitize-html](https://github.com/apostrophecms/apostrophe) | 2.18.1 | MIT |
 | [semver](https://github.com/npm/node-semver) | 5.7.2 | ISC |
 | shelljs | 0.8.5 | BSD-3-Clause |
 | source-map-js | 1.2.2 | BSD-3-Clause |
@@ -159,7 +158,7 @@ Bundled packages: 82
 
 ## PipelinePublishKbArticle
 
-Bundled packages: 77
+Bundled packages: 76
 
 | Package | Version | Licence |
 | --- | --- | --- |
@@ -174,9 +173,8 @@ Bundled packages: 77
 | cheerio-select | 2.1.0 | BSD-2-Clause |
 | css-select | 5.2.2 | BSD-2-Clause |
 | [css-what](https://github.com/fb55/css-what) | 6.2.2 | BSD-2-Clause |
-| [dayjs](https://github.com/iamkun/dayjs) | 1.11.21 | MIT |
+| [dayjs](https://github.com/iamkun/dayjs) | 1.11.23 | MIT |
 | debug | 4.4.3 | MIT |
-| deepmerge | 4.3.1 | MIT |
 | dom-serializer | 2.0.0 | MIT |
 | dom-serializer | 3.1.1 | MIT |
 | domelementtype | 2.3.0 | BSD-2-Clause |
@@ -192,7 +190,7 @@ Bundled packages: 77
 | [entities](https://github.com/fb55/entities) | 8.0.0 | BSD-2-Clause |
 | [es-errors](https://github.com/ljharb/es-errors) | 1.3.0 | MIT |
 | escape-string-regexp | 4.0.0 | MIT |
-| follow-redirects | 1.16.0 | MIT |
+| follow-redirects | 1.16.1 | MIT |
 | [fs.realpath](https://github.com/isaacs/fs.realpath) | 1.0.0 | ISC |
 | [function-bind](https://github.com/Raynos/function-bind) | 1.1.2 | MIT |
 | glob | 7.2.3 | ISC |
@@ -205,13 +203,13 @@ Bundled packages: 77
 | inherits | 2.0.4 | ISC |
 | interpret | 1.4.0 | MIT |
 | [is-core-module](https://github.com/inspect-js/is-core-module) | 2.17.0 | MIT |
-| is-plain-object | 5.0.0 | MIT |
-| [launder](https://github.com/apostrophecms/apostrophe) | 1.7.1 | MIT |
+| is-plain-object | 5.1.0 | MIT |
+| [launder](https://github.com/apostrophecms/apostrophe) | 1.7.2 | MIT |
 | mime-db | 1.52.0 | MIT |
 | mime-types | 2.1.35 | MIT |
 | minimatch | 3.1.5 | ISC |
 | ms | 2.1.3 | MIT |
-| nanoid | 3.3.18 | MIT |
+| nanoid | 3.3.20 | MIT |
 | [nodejs-file-downloader](https://github.com/ibrod83/nodejs-file-downloader) | 4.13.0 | ISC |
 | [nth-check](https://github.com/fb55/nth-check) | 2.1.1 | BSD-2-Clause |
 | once | 1.4.0 | ISC |
@@ -222,13 +220,13 @@ Bundled packages: 77
 | path-is-absolute | 1.0.1 | MIT |
 | [path-parse](https://github.com/jbgutierrez/path-parse) | 1.0.7 | MIT |
 | picocolors | 1.1.1 | ISC |
-| postcss | 8.5.23 | MIT |
+| postcss | 8.5.29 | MIT |
 | q | 1.5.1 | MIT |
 | rechoir | 0.6.2 | MIT |
 | resolve | 1.22.12 | MIT |
 | [safer-buffer](https://github.com/ChALkeR/safer-buffer) | 2.1.2 | MIT |
 | sanitize-filename | 1.6.4 | WTFPL OR ISC |
-| [sanitize-html](https://github.com/apostrophecms/apostrophe) | 2.17.7 | MIT |
+| [sanitize-html](https://github.com/apostrophecms/apostrophe) | 2.18.1 | MIT |
 | [semver](https://github.com/npm/node-semver) | 5.7.2 | ISC |
 | shelljs | 0.8.5 | BSD-3-Clause |
 | source-map-js | 1.2.2 | BSD-3-Clause |
