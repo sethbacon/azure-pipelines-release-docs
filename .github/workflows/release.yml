@@ -107,7 +107,7 @@ jobs:
       # unobserved outage. Derive the lists from the first release run's harden-runner
       # summaries and flip all seven jobs then; the workflow-hardening gate keeps this
       # reason in front of whoever edits the file (#23).
-      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
 
@@ -273,14 +273,14 @@ jobs:
       # run, so no audit-mode record exists to derive an allowlist from. This job also
       # runs `npm ci` and the per-task installs, whose destinations are npm's registry
       # and CDN rather than a set this file can enumerate (#23).
-      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.guard.outputs.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           # Nothing here asks for a cache, but setup-node turns one on by itself
@@ -300,7 +300,7 @@ jobs:
       - name: Third-party notices match what was just built
         run: node scripts/generate-third-party-notices.js --check
       - name: Upload build artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: build
           path: build/
@@ -315,14 +315,14 @@ jobs:
       # hardening-exception: egress-audit — same as `guard`: no audit-mode record
       # exists yet, and this job runs `npm ci` plus `tfx extension create`, whose
       # egress is npm's and Microsoft's to change rather than this file's (#23).
-      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.guard.outputs.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           # Nothing here asks for a cache, but setup-node turns one on by itself
@@ -333,14 +333,14 @@ jobs:
       - name: Install root dependencies
         run: npm ci --ignore-scripts
       - name: Download build artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: build
           path: build/
       - name: Package extension
         run: npm run package:release
       - name: Upload vsix artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: vsix
           path: "*.vsix"
@@ -364,14 +364,14 @@ jobs:
       # in 4cloudguru/pipeline-task-core's publish.yml (fulcio, rekor, tuf-repo-cdn,
       # registry.npmjs.org, api.github.com); confirm it against this job's first real
       # run and flip it then (#23).
-      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.guard.outputs.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           # Nothing here asks for a cache, but setup-node turns one on by itself
@@ -419,7 +419,7 @@ jobs:
           npx --no-install cyclonedx-npm --output-file ../../../sbom-publishkbarticlev1.cdx.json --omit dev
 
       - name: Download vsix artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: vsix
       - name: Install cosign
@@ -462,7 +462,7 @@ jobs:
           sbom-path: "sbom-publishkbarticlev1.cdx.json"
 
       - name: Upload SBOM and signature artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sbom-and-signatures
           path: |
@@ -484,7 +484,7 @@ jobs:
       # exists for this workflow yet. This job downloads artifacts, installs cosign
       # from a GitHub release and verifies against Rekor before creating the draft
       # (#23).
-      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -493,11 +493,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Download vsix artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: vsix
       - name: Download SBOM and signature artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: sbom-and-signatures
       # The same integrity gate publish-marketplace runs, applied before the
@@ -586,7 +586,7 @@ jobs:
       # no allowlist, and that fix lives in 4cloudguru/shared-workflows (those are
       # shared reusable workflows, not something this repo's own file can flip) --
       # left for that issue rather than folded in here.
-      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -607,7 +607,7 @@ jobs:
         with:
           ref: ${{ needs.guard.outputs.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           # Nothing here asks for a cache, but setup-node turns one on by itself
@@ -622,14 +622,14 @@ jobs:
       - name: Install root dependencies
         run: npm ci --ignore-scripts
       - name: Download vsix artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: vsix
       # Re-download the cosign bundle sbom-and-sign produced over the exact .vsix
       # bytes, so the gate below verifies the SAME bytes that are about to be
       # published rather than merely that some valid signature exists somewhere.
       - name: Download SBOM and signature artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: sbom-and-signatures
       # Integrity gate, and the reason it runs BEFORE azure/login: everything
@@ -706,7 +706,7 @@ jobs:
       # hardening-exception: egress-audit — same as `guard`: no observed egress record
       # exists for this workflow yet. This job runs one github-script call against the
       # API and is the cheapest of the seven to flip once that record exists (#23).
-      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
       - name: Undraft the release
