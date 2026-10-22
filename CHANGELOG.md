@@ -10,6 +10,13 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.13](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.12...v1.1.13) (2026-10-22)
+
+
+### Bug Fixes
+
+* **release:** regenerate third-party notices for azure-pipelines-task-lib 5.281.1 ([#278](https://github.com/sethbacon/azure-pipelines-release-docs/issues/278)) ([a5432e6](https://github.com/sethbacon/azure-pipelines-release-docs/commit/a5432e671a9f572aac875e04870b235e65c78c65))
+
 ## [1.1.12](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.11...v1.1.12) (2026-10-22)
 
 
