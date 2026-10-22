@@ -47,7 +47,7 @@ jobs:
       # NOT set that policy itself, it's the pinned 4cloudguru/shared-workflows commit
       # those jobs delegate to, self-checked against drift by
       # scripts/check-shared-workflow-egress.js (#23).
-      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -59,7 +59,7 @@ jobs:
           # <base>:Tasks/.../task.json` would fail and check-versions.js fails
           # closed rather than skipping the comparison.
           fetch-depth: 0
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
       - name: Version and manifest invariants
@@ -232,13 +232,13 @@ jobs:
       # that breaks a required check on a CDN change. It holds no stored credential.
       # Same call 4cloudguru/cloud-suite-ui's publish.yml makes, and for the same
       # stated reason (#23).
-      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
       - run: npm ci --ignore-scripts
@@ -263,7 +263,7 @@ jobs:
       # without Node 24 runs the shipped artefact under Node 20 — a runtime nothing
       # here executed until this leg. azure-pipelines-terraform smoke-tested these
       # same two tasks that way before they moved (its #654).
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 20
       - run: npm run smoke:all
@@ -277,13 +277,13 @@ jobs:
       # the registry's advisory endpoint and `npm ci` resolves through its CDN, so
       # the destination set belongs to npm rather than to this file. No stored
       # credential is present in this job (#23).
-      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
       # Dependency-free: reads package-lock.json and the workflows only, so it
@@ -338,13 +338,13 @@ jobs:
       # hardening-exception: egress-audit — this job holds no stored credential and
       # runs one dependency-free node script over the checked-out documents; its
       # egress is the runner's own action and toolchain fetches (#23).
-      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
       # No install step: the gate uses node builtins and `git check-ignore` only,

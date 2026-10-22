@@ -139,7 +139,7 @@ jobs:
       # from yet); that policy lives in the pinned 4cloudguru/shared-workflows
       # commit they delegate to, self-checked against drift by
       # scripts/check-shared-workflow-egress.js (#23).
-      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: audit
 
@@ -310,7 +310,7 @@ jobs:
       # github.com, so -- unlike `ci` and `osv-scan` above -- this one runs
       # `block` rather than `audit` from its first execution: the endpoint set
       # is fully known up front rather than needing an observed baseline.
-      - uses: step-security/harden-runner@351661ca32ac09a36dc5ee2d536e3128f2a3c8ed # v2.22.0
+      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -334,7 +334,7 @@ jobs:
       - name: Clone azure-pipelines-terraform (upstream, public, anonymous)
         run: git clone --quiet --depth 1 --branch main https://github.com/sethbacon/azure-pipelines-terraform.git upstream-azure-pipelines-terraform
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           # Nothing here asks for a cache, but setup-node turns one on by
