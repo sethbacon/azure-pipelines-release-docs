@@ -86,6 +86,8 @@ jobs:
         run: node scripts/test-package-composition.js
       - name: Version, universe, publish-identity and audit-scope gates detect what they claim to
         run: node scripts/test-gates.js
+      - name: Node 20 smoke gate detects a crash the exit code hides
+        run: node scripts/test-smoke-compiled-task.js
       # Nothing compares THIRD_PARTY_NOTICES.md with what the .vsix bundles, so the
       # generator is the only place its accuracy is decided. This holds it to the
       # lockfile's production closure whatever state the tree is in.

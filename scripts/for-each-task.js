@@ -76,8 +76,13 @@ const ACTIONS = {
   audit: (dir) => npm(['audit', '--audit-level=high', '--no-update-notifier', '--no-progress'], { cwd: path.join(root, dir) }),
   // Executes the COMPILED entry point the agent runs, so a CI leg on another Node
   // major proves the shipped artefact loads there. task.json declaring a Node20_1
-  // handler that only ever ran under Node 24 is the gap this closes.
-  smoke: (dir) => node([path.join(root, dir, 'src', 'index.js')], { cwd: path.join(root, dir) }),
+  // handler that only ever ran under Node 24 is the gap this closes. Through
+  // smoke-compiled-task.js rather than a bare `node src/index.js`, because the
+  // exit code alone cannot fail on a load error: azure-pipelines-task-lib's
+  // process-wide uncaughtException listener records it as `Unhandled: ...` and
+  // the process exits 0. The script also fails a run whose recorded result came
+  // from an uncaught path.
+  smoke: (dir) => node([path.join(root, 'scripts', 'smoke-compiled-task.js'), path.join(root, dir)], { cwd: path.join(root, dir) }),
 }
 
 function npm(args, options = {}) {

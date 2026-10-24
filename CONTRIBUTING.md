@@ -98,7 +98,10 @@ npm install                           # or Tasks/PublishKbArticle/PublishKbArtic
      for them.
    - `Build and Test` — on Ubuntu and Windows: installs each task's dependencies, compiles, and runs
      `npm run test:all`, then re-runs the compiled entry point of every task under Node 20 (the
-     `Node20_1` execution-handler fallback) to prove it still loads there.
+     `Node20_1` execution-handler fallback) to prove it still loads there. It runs through
+     `scripts/smoke-compiled-task.js`, which also fails a run that ended outside the task's own
+     error handling even at exit 0, since task-lib turns an uncaught load error into a recorded
+     `Unhandled:` result rather than a non-zero exit.
    - `Dependency audit` — `npm audit --audit-level=high` at the root and across every task
      (`npm run audit:all`), gated first by `scripts/check-audit-scope.js` (the audited tree is not
      empty) and `scripts/check-dependabot-coverage.js` (every task directory has a Dependabot entry).
