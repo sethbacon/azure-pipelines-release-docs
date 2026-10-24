@@ -64,7 +64,7 @@ Bundled packages: 37
 | shelljs | 0.8.5 | BSD-3-Clause |
 | [supports-preserve-symlinks-flag](https://github.com/inspect-js/node-supports-preserve-symlinks-flag) | 1.0.0 | MIT |
 | [truncate-utf8-bytes](https://github.com/parshap/truncate-utf8-bytes) | 1.0.2 | WTFPL |
-| [undici](https://github.com/nodejs/undici) | 6.29.0 | MIT |
+| [undici](https://github.com/nodejs/undici) | 6.29.1 | MIT |
 | [utf8-byte-length](https://github.com/parshap/utf8-byte-length) | 1.0.5 | (WTFPL OR MIT) |
 | [wrappy](https://github.com/npm/wrappy) | 1.0.2 | ISC |
 
@@ -150,7 +150,7 @@ Bundled packages: 81
 | [supports-preserve-symlinks-flag](https://github.com/inspect-js/node-supports-preserve-symlinks-flag) | 1.0.0 | MIT |
 | [truncate-utf8-bytes](https://github.com/parshap/truncate-utf8-bytes) | 1.0.2 | WTFPL |
 | uc.micro | 2.1.0 | MIT |
-| [undici](https://github.com/nodejs/undici) | 7.30.0 | MIT |
+| [undici](https://github.com/nodejs/undici) | 7.30.1 | MIT |
 | [utf8-byte-length](https://github.com/parshap/utf8-byte-length) | 1.0.5 | (WTFPL OR MIT) |
 | whatwg-encoding | 3.1.1 | MIT |
 | whatwg-mimetype | 4.0.0 | MIT |
@@ -232,8 +232,8 @@ Bundled packages: 76
 | source-map-js | 1.2.2 | BSD-3-Clause |
 | [supports-preserve-symlinks-flag](https://github.com/inspect-js/node-supports-preserve-symlinks-flag) | 1.0.0 | MIT |
 | [truncate-utf8-bytes](https://github.com/parshap/truncate-utf8-bytes) | 1.0.2 | WTFPL |
-| [undici](https://github.com/nodejs/undici) | 6.29.0 | MIT |
-| [undici](https://github.com/nodejs/undici) | 7.29.1 | MIT |
+| [undici](https://github.com/nodejs/undici) | 6.29.1 | MIT |
+| [undici](https://github.com/nodejs/undici) | 7.30.1 | MIT |
 | [utf8-byte-length](https://github.com/parshap/utf8-byte-length) | 1.0.5 | (WTFPL OR MIT) |
 | whatwg-encoding | 3.1.1 | MIT |
 | whatwg-mimetype | 4.0.0 | MIT |
