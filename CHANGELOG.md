@@ -10,6 +10,13 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.14](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.13...v1.1.14) (2026-10-24)
+
+
+### Bug Fixes
+
+* **deps:** patch undici in every task ([#281](https://github.com/sethbacon/azure-pipelines-release-docs/issues/281)) ([b6583e5](https://github.com/sethbacon/azure-pipelines-release-docs/commit/b6583e5e3a8eae75b5a86c6e6c76f4d3969dec5f))
+
 ## [1.1.13](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.12...v1.1.13) (2026-10-22)
 
 
