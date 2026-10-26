@@ -47,7 +47,7 @@ jobs:
       # NOT set that policy itself, it's the pinned 4cloudguru/shared-workflows commit
       # those jobs delegate to, self-checked against drift by
       # scripts/check-shared-workflow-egress.js (#23).
-      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -234,7 +234,7 @@ jobs:
       # that breaks a required check on a CDN change. It holds no stored credential.
       # Same call 4cloudguru/cloud-suite-ui's publish.yml makes, and for the same
       # stated reason (#23).
-      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -279,7 +279,7 @@ jobs:
       # the registry's advisory endpoint and `npm ci` resolves through its CDN, so
       # the destination set belongs to npm rather than to this file. No stored
       # credential is present in this job (#23).
-      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -340,7 +340,7 @@ jobs:
       # hardening-exception: egress-audit — this job holds no stored credential and
       # runs one dependency-free node script over the checked-out documents; its
       # egress is the runner's own action and toolchain fetches (#23).
-      - uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25 # v2.22.1
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
