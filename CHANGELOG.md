@@ -10,6 +10,13 @@
 > lists only new commits. Nothing was ever published to the Visual Studio Marketplace under any of
 > these versions.
 
+## [1.1.15](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.14...v1.1.15) (2026-11-06)
+
+
+### Bug Fixes
+
+* **deps:** patch follow-redirects and qs, and move glob and minimatch past their advisories ([#297](https://github.com/sethbacon/azure-pipelines-release-docs/issues/297)) ([e446990](https://github.com/sethbacon/azure-pipelines-release-docs/commit/e446990d4e8ac4309537c55440f026feb595c4f6))
+
 ## [1.1.14](https://github.com/sethbacon/azure-pipelines-release-docs/compare/v1.1.13...v1.1.14) (2026-10-24)
 
 
