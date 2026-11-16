@@ -47,7 +47,7 @@ jobs:
       # NOT set that policy itself, it's the pinned 4cloudguru/shared-workflows commit
       # those jobs delegate to, self-checked against drift by
       # scripts/check-shared-workflow-egress.js (#23).
-      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -120,7 +120,7 @@ jobs:
       # so the verdict here is unchanged. Its mutation self-test runs in
       # shared-workflows' CI beside the implementation it protects.
       - name: Egress authorization (SSRF class signature)
-        uses: 4cloudguru/shared-workflows/.github/actions/check-egress-authorization@a1fdc796956444af6c184c0784e1b033637888e9 # v1.29.3
+        uses: 4cloudguru/shared-workflows/.github/actions/check-egress-authorization@51b396a2f7035e9358ebbd942425cc31bb9b81c9 # v1.30.0
         with:
           # 17 sites, measured 2026-09-11 on this branch with
           # `node .github/actions/check-egress-authorization/check-egress-authorization.js <root> --json`
@@ -154,7 +154,7 @@ jobs:
       # point gone nothing in this repository would compare it any more, so the
       # check-enforced-disciplines composite `cmp`s it against its own copy at the pin.
       - name: Enforced disciplines (documented-but-unenforced class signature)
-        uses: 4cloudguru/shared-workflows/.github/actions/check-enforced-disciplines@a1fdc796956444af6c184c0784e1b033637888e9 # v1.29.3
+        uses: 4cloudguru/shared-workflows/.github/actions/check-enforced-disciplines@51b396a2f7035e9358ebbd942425cc31bb9b81c9 # v1.30.0
       # The gate itself now lives in 4cloudguru/shared-workflows as a composite
       # action, replacing the hand-copy that used to sit in scripts/. A composite
       # is a STEP inside this job, so "Check Version Consistency" keeps its name
@@ -162,7 +162,7 @@ jobs:
       # shared-workflows' CI, beside the implementation it protects, which is why
       # the `Self-test check-shared-module-pins.js` step that stood here is gone.
       - name: Shared-module pins in lockstep (#1108 class signature)
-        uses: 4cloudguru/shared-workflows/.github/actions/check-shared-module-pins@a1fdc796956444af6c184c0784e1b033637888e9 # v1.29.3
+        uses: 4cloudguru/shared-workflows/.github/actions/check-shared-module-pins@51b396a2f7035e9358ebbd942425cc31bb9b81c9 # v1.30.0
         with:
           # 3 task manifests scanned -- ChangelogV1, Markdown2HtmlV1,
           # PublishKbArticleV1 -- measured 2026-09-11 on this branch with
@@ -178,7 +178,7 @@ jobs:
       # is the one failure a coverage gate must not have. The declared floor below
       # is what catches that shape now that the self-test has moved upstream.
       - name: Outbound proxy parity (packer #196 class signature)
-        uses: 4cloudguru/shared-workflows/.github/actions/check-proxy-parity@a1fdc796956444af6c184c0784e1b033637888e9 # v1.29.3
+        uses: 4cloudguru/shared-workflows/.github/actions/check-proxy-parity@51b396a2f7035e9358ebbd942425cc31bb9b81c9 # v1.30.0
         with:
           # 1 site, measured 2026-09-10 on this branch with
           # `node .github/actions/check-proxy-parity/check-proxy-parity.js <root> --json`
@@ -191,7 +191,7 @@ jobs:
       # denominator is the whole point: `min-scanned` is refused below 1, so a
       # green step proves the gate read this tree rather than an empty one.
       - name: Artefact trust (packer #196 class signature)
-        uses: 4cloudguru/shared-workflows/.github/actions/check-artifact-trust@a1fdc796956444af6c184c0784e1b033637888e9 # v1.29.3
+        uses: 4cloudguru/shared-workflows/.github/actions/check-artifact-trust@51b396a2f7035e9358ebbd942425cc31bb9b81c9 # v1.30.0
         with:
           # 0 sites / 34 source files scanned, measured 2026-09-10 on this branch with
           # `node .github/actions/check-artifact-trust/check-artifact-trust.js <root> --json`
@@ -200,7 +200,7 @@ jobs:
           min-scanned: 34
           min-sites: 0
       - name: Provider auth fails closed (credential parity matrix)
-        uses: 4cloudguru/shared-workflows/.github/actions/auth-parity-matrix@a1fdc796956444af6c184c0784e1b033637888e9 # v1.29.3
+        uses: 4cloudguru/shared-workflows/.github/actions/auth-parity-matrix@51b396a2f7035e9358ebbd942425cc31bb9b81c9 # v1.30.0
         with:
           # 0 cells / 34 source files scanned / 0 handler files, measured 2026-09-10 on
           # this branch with
@@ -234,7 +234,7 @@ jobs:
       # that breaks a required check on a CDN change. It holds no stored credential.
       # Same call 4cloudguru/cloud-suite-ui's publish.yml makes, and for the same
       # stated reason (#23).
-      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -279,7 +279,7 @@ jobs:
       # the registry's advisory endpoint and `npm ci` resolves through its CDN, so
       # the destination set belongs to npm rather than to this file. No stored
       # credential is present in this job (#23).
-      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -318,7 +318,7 @@ jobs:
   # extensions kept their own.
   workflow-security:
     name: Workflow Security
-    uses: 4cloudguru/shared-workflows/.github/workflows/workflow-security.yml@a1fdc796956444af6c184c0784e1b033637888e9 # v1.29.3
+    uses: 4cloudguru/shared-workflows/.github/workflows/workflow-security.yml@51b396a2f7035e9358ebbd942425cc31bb9b81c9 # v1.30.0
 
   # The recording half is a SEPARATE workflow because a job requesting
   # security-events: write is validated when the run is created, before `if:` is
@@ -330,7 +330,7 @@ jobs:
     permissions:
       contents: read
       security-events: write
-    uses: 4cloudguru/shared-workflows/.github/workflows/workflow-security-record.yml@a1fdc796956444af6c184c0784e1b033637888e9 # v1.29.3
+    uses: 4cloudguru/shared-workflows/.github/workflows/workflow-security-record.yml@51b396a2f7035e9358ebbd942425cc31bb9b81c9 # v1.30.0
 
   docs-claims:
     name: Check Documented Claims
@@ -340,7 +340,7 @@ jobs:
       # hardening-exception: egress-audit — this job holds no stored credential and
       # runs one dependency-free node script over the checked-out documents; its
       # egress is the runner's own action and toolchain fetches (#23).
-      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -361,7 +361,7 @@ jobs:
       # implementation it protects, which is why the `Self-test
       # check-docs-claims.js` step that stood here is gone.
       - name: Documented claims match what this repository implements
-        uses: 4cloudguru/shared-workflows/.github/actions/check-docs-claims@a1fdc796956444af6c184c0784e1b033637888e9 # v1.29.3
+        uses: 4cloudguru/shared-workflows/.github/actions/check-docs-claims@51b396a2f7035e9358ebbd942425cc31bb9b81c9 # v1.30.0
         with:
           # 75 claims, measured 2026-10-05 on this branch with
           # `node .github/actions/check-docs-claims/check-docs-claims.js <root> --json`
